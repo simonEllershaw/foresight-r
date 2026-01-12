@@ -1,0 +1,114 @@
+# Python-generated files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+wheels/
+*.egg-info
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Data files (keep directory structure)
+data/raw/*
+data/processed/*
+data/external/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+*.csv
+*.parquet
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.db
+*.sqlite
+
+# Models (keep directory structure)
+models/*
+!models/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.pb
+*.joblib
+
+# Reports and outputs
+reports/*
+!reports/.gitkeep
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Linting
+.ruff_cache/
+
+# Environment variables
+.env
+.env.local
+
+# MIMIC and MEDS data
+data/raw/mimic-demo/
+data/processed/mimic-demo-premeds/
+data/processed/mimic-demo-meds/
+data/processed/mimic-demo-tokenized/
+ethos-ares/
+
+# MEDS pipeline outputs
+outputs/
+scripts/meds/mimic/configs/.hydra/
+.hydra/
+
+# Compressed data files
+*.gz
+*.zip
+*.tar
+*.tar.gz
+

@@ -187,6 +187,19 @@ add_reg_time_by_stay_id = partial(
 )
 
 
+def format_to_3sf(expr: pl.Expr) -> pl.Expr:
+    """Format a numeric expression to 3 significant figures as a string."""
+    return expr.map_elements(
+        lambda x: f"{x:.3g}" if x is not None else None, return_dtype=pl.String
+    )
+
+
+def add_lab_item_text(df: pl.LazyFrame, d_labitems_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Joins labevents with d_labitems to add item_text, fluid, and merged value columns."""
+    d_labitems_df = d_labitems_df.select("itemid", "fluid", "label")
+    return df.join(d_labitems_df, on="itemid", how="left")
+
+
 def fix_static_data(
     raw_static_df: pl.LazyFrame, death_times_df: pl.LazyFrame
 ) -> pl.LazyFrame:
@@ -224,6 +237,10 @@ FUNCTIONS = {
     "hosp/patients": (
         fix_static_data,
         ("hosp/admissions", ["subject_id", "deathtime"]),
+    ),
+    "hosp/labevents": (
+        add_lab_item_text,
+        ("hosp/d_labitems", ["itemid", "label", "fluid"]),
     ),
     "ed/diagnosis": (add_out_time_by_stay_id, ("ed/edstays", ["stay_id", "outtime"])),
     "ed/triage": (add_reg_time_by_stay_id, ("ed/edstays", ["stay_id", "intime"])),

@@ -66,6 +66,7 @@ download-demo-data: download-mimic-demo download-mimic-ed-demo
 # ------------------------------------------------------------------------------
 
 run-meds-extraction:
+	@rm -rf $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
 	@mkdir -p $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
 	@echo "Running pre-MEDS processing..."
 	uv run python "$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/pre_MEDS.py" \
@@ -74,7 +75,8 @@ run-meds-extraction:
 	@echo "Running MEDS transform runner..."
 	MIMICIV_PRE_MEDS_DIR="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)" \
 	MIMICIV_MEDS_COHORT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
-	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/event_configs-ed.yaml" \
+	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/event_configs-ed-nl.yaml" \
+	N_WORKERS=$(N_WORKERS) \
 	uv run MEDS_transform-runner \
 		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/extract_MIMIC.yaml" \
 		stage_runner_fp="$(CURDIR)/scripts/meds/local_parallelism_runner.yaml"

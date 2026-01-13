@@ -25,7 +25,6 @@ ed/triage:
       - "Emergency Department Triage |"
       - "Temperature"
       - col(temperature)
-      - "°C"
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -34,7 +33,6 @@ ed/triage:
       - "Emergency Department Triage |"
       - "Heart Rate"
       - col(heartrate)
-      - "bpm"
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -43,7 +41,6 @@ ed/triage:
       - "Emergency Department Triage |"
       - "Respiratory Rate"
       - col(resprate)
-      - breaths/min
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -52,7 +49,6 @@ ed/triage:
       - "Emergency Department Triage |"
       - "O2 Saturation"
       - col(o2sat)
-      - "%"
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -63,7 +59,6 @@ ed/triage:
       - col(sbp)
       - "/ "
       - col(dbp)
-      - "mmHg"
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -80,7 +75,6 @@ ed/triage:
       - "Emergency Department Triage |"
       - "Acuity Score"
       - col(acuity)
-      - (1 highest - 5 lowest severity)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -186,7 +180,6 @@ ed/vitalsign:
       - "Emergency Department Vital Signs |"
       - "Temperature"
       - col(temperature)
-      - "°C"
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -195,7 +188,6 @@ ed/vitalsign:
       - "Emergency Department Vital Signs |"
       - "Heart Rate"
       - col(heartrate)
-      - "bpm"
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -204,7 +196,6 @@ ed/vitalsign:
       - "Emergency Department Vital Signs |"
       - "Respiratory Rate"
       - col(resprate)
-      - breaths/min
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -213,7 +204,6 @@ ed/vitalsign:
       - "Emergency Department Vital Signs |"
       - "O2 Saturation"
       - col(o2sat)
-      - "%"
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -224,7 +214,6 @@ ed/vitalsign:
       - col(sbp)
       - "/ "
       - col(dbp)
-      - "mmHg"
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"

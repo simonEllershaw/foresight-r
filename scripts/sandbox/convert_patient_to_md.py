@@ -4,52 +4,74 @@ import polars as pl
 from pathlib import Path
 
 
-def patient_to_text_v2(patient_df: pl.DataFrame) -> str:
-    """Convert a patient's MEDS data to free text EHR format with date/time/category headers.
+def patient_to_text(patient_df: pl.DataFrame) -> str:
+    """Convert a patient's MEDS data to free text EHR format using pure Polars.
 
     Expects patient_df to already have date, time_str, category, and text columns computed.
     And expects patient_df to be sorted by time.
     """
+    # Detect changes in date, time, and category for header insertion
+    df = patient_df.with_columns(
+        [
+            # Track when values change from previous row
+            (pl.col("date") != pl.col("date").shift(1)).alias("date_changed"),
+            (pl.col("time_str") != pl.col("time_str").shift(1)).alias("time_changed"),
+            (pl.col("category") != pl.col("category").shift(1)).alias(
+                "category_changed"
+            ),
+            # Check if date is null
+            pl.col("date").is_null().alias("date_is_null"),
+        ]
+    )
+
+    # Build markdown lines using vectorized operations
     lines = ["# Patient's Electronic Health Record", ""]
 
-    # Sort by time (nulls first)
-    # df = patient_df.sort("time", nulls_last=False)
+    # Create formatted lines for each row with conditional headers
+    df = df.with_columns(
+        [
+            # Date header (only when date changes)
+            pl.when(pl.col("date_changed"))
+            .then(
+                pl.when(pl.col("date_is_null"))
+                .then(pl.lit("## Null\n"))
+                .otherwise(pl.concat_str([pl.lit("## "), pl.col("date"), pl.lit("\n")]))
+            )
+            .otherwise(pl.lit(""))
+            .alias("date_header"),
+            # Time header (only when time changes and date is not null)
+            pl.when(pl.col("time_changed") & ~pl.col("date_is_null"))
+            .then(pl.concat_str([pl.lit("### "), pl.col("time_str"), pl.lit("\n")]))
+            .otherwise(pl.lit(""))
+            .alias("time_header"),
+            # Category header (only when category changes)
+            pl.when(pl.col("category_changed"))
+            .then(pl.concat_str([pl.lit("#### "), pl.col("category"), pl.lit("\n")]))
+            .otherwise(pl.lit(""))
+            .alias("category_header"),
+            # The text content
+            pl.concat_str([pl.col("text"), pl.lit("\n")]).alias("text_line"),
+        ]
+    )
 
-    prev_date = "INITIAL"  # Sentinel value to trigger first header
-    prev_time = None
-    prev_category = None
+    # Concatenate all parts for each row
+    df = df.with_columns(
+        [
+            pl.concat_str(
+                [
+                    pl.col("date_header"),
+                    pl.col("time_header"),
+                    pl.col("category_header"),
+                    pl.col("text_line"),
+                ]
+            ).alias("full_line")
+        ]
+    )
 
-    for row in patient_df.iter_rows(named=True):
-        category = row["category"]
-        text = row["text"]
-        curr_date = row["date"]
-        curr_time = row["time_str"]
+    # Join all lines together
+    markdown_body = "".join(df["full_line"].to_list())
 
-        # Add date header if date changed
-        if curr_date != prev_date:
-            if curr_date is None:
-                lines.append("## Null")
-            else:
-                lines.append(f"## {curr_date}")
-            prev_date = curr_date
-            prev_time = None  # Reset time when date changes
-            prev_category = None  # Reset category when date changes
-
-        # Add time header if time changed (skip for null dates)
-        if curr_date is not None and curr_time != prev_time:
-            lines.append(f"### {curr_time}")
-            prev_time = curr_time
-            prev_category = None  # Reset category when time changes
-
-        # Add category header if category changed
-        if category != prev_category:
-            lines.append(f"#### {category}")
-            prev_category = category
-
-        # Add the text
-        lines.append(text)
-
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n" + markdown_body.rstrip("\n")
 
 
 def main():
@@ -82,7 +104,7 @@ def main():
             pl.col("code")
             .str.replace_all("//", " ")
             .str.replace_all("___", "")
-            .str.replace_all("UNK", "")
+            .str.replace_all("UNK", "Missing")
             .str.replace_all(r"(\s){2,}", " "),
         ]
     )
@@ -115,7 +137,7 @@ def main():
     print(f"Found {len(patient_data)} events for patient {subject_id}")
 
     # Convert to markdown
-    ehr_markdown = patient_to_text_v2(patient_data)
+    ehr_markdown = patient_to_text(patient_data)
 
     # Save to file
     output_file = OUTPUT_DIR / f"ehr_{subject_id}.md"

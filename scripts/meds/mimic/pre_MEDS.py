@@ -205,7 +205,10 @@ def round_to_3sf(expr: pl.Expr) -> pl.Expr:
 def add_lab_item_text(df: pl.LazyFrame, d_labitems_df: pl.LazyFrame) -> pl.LazyFrame:
     """Joins labevents with d_labitems to add item_text, fluid, and merged value columns."""
     d_labitems_df = d_labitems_df.select("itemid", "fluid", "label")
-    return df.join(d_labitems_df, on="itemid", how="left")
+    result = df.join(d_labitems_df, on="itemid", how="left")
+    # Convert null values in valueuom column to empty strings
+    result = result.with_columns(pl.col("valueuom").fill_null(""))
+    return result
 
 
 def normalize_edstays(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -226,14 +229,25 @@ def normalize_hosp_admissions(df: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
+def normalize_hosp_drgcodes_with_time(
+    df: pl.LazyFrame, admissions_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Add discharge time and convert description to title case."""
+    df = add_discharge_time_by_hadm_id(df, admissions_df)
+    return df.with_columns(pl.col("description").str.to_titlecase())
+
+
 def normalize_hosp_transfers(df: pl.LazyFrame) -> pl.LazyFrame:
     """Map eventtype values to descriptive text."""
     return df.with_columns(
         pl.col("eventtype").replace_strict(
             {
-                "discharge": "Discharge",
+                "discharge": "Discharge from",
                 "admit": "Admit to",
                 "transfer": "Transfer to",
+                # Care unit is always Emergency Department for "ED" eventtypes
+                # So no need to repeat it here
+                "ED": "",
             },
             default=pl.col("eventtype"),
         )
@@ -342,7 +356,7 @@ FUNCTIONS = {
         ],
     ),
     "hosp/drgcodes": (
-        add_discharge_time_by_hadm_id,
+        normalize_hosp_drgcodes_with_time,
         [("hosp/admissions", ["hadm_id", "dischtime"])],
     ),
     "hosp/patients": (

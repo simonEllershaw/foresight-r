@@ -19,7 +19,7 @@ MIMICIV_MEDS_DIR     := data/mimic-iv-meds
 MIMIC_MEDS_SCRIPT_DIR := scripts/meds/mimic
 N_WORKERS             := 1
 
-.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction
+.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file
 
 # ------------------------------------------------------------------------------
 # Helper Functions
@@ -82,3 +82,9 @@ run-meds-extraction:
 	uv run MEDS_transform-runner \
 		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/extract_MIMIC.yaml" \
 		stage_runner_fp="$(CURDIR)/scripts/meds/local_parallelism_runner.yaml"
+
+	@echo "Create sample patient markdown file..."
+	uv run python scripts/sandbox/convert_patient_to_md.py
+
+sample_markdown_file:
+	uv run python scripts/sandbox/convert_patient_to_md.py

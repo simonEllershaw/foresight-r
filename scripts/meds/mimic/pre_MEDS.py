@@ -225,26 +225,77 @@ def normalize_hosp_admissions(df: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
+def normalize_hosp_transfers(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Map eventtype values to descriptive text."""
+    return df.with_columns(
+        pl.col("eventtype").replace_strict(
+            {
+                "discharge": "Discharge",
+                "admit": "Admit to",
+                "transfer": "Transfer to",
+            },
+            default=pl.col("eventtype"),
+        )
+    )
+
+
+def add_icd_info(
+    df: pl.LazyFrame, admissions_df: pl.LazyFrame, d_icd_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Add discharge time from admissions and long_title from an ICD reference table."""
+    df = add_discharge_time_by_hadm_id(df, admissions_df)
+    # Cast to string to match d_icd schema
+    df = df.with_columns(
+        pl.col("icd_code").cast(pl.String),
+        pl.col("icd_version").cast(pl.String),
+    )
+    return df.join(
+        d_icd_df.select("icd_code", "icd_version", "long_title"),
+        on=["icd_code", "icd_version"],
+        how="left",
+    )
+
+
 def normalize_ed_diagnosis(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
     """Add outtime and convert icd_title to title case."""
     df = add_out_time_by_stay_id(df, edstays_df)
     return df.with_columns(pl.col("icd_title").str.to_titlecase())
 
 
-def normalize_ed_triage(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Add registration time and convert Fahrenheit temperatures to Celsius."""
-
-    df = add_reg_time_by_stay_id(df, edstays_df)
-
+def convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Convert Fahrenheit temperatures to Celsius (assumes F if > 45)."""
     temp_expr = pl.col("temperature").cast(pl.Float64, strict=False)
-
     converted_temp = (
         pl.when(temp_expr.is_not_null() & (temp_expr > 45))
         .then((temp_expr - 32) * 5 / 9)
         .otherwise(temp_expr)
     )
-
     return df.with_columns(round_to_3sf(converted_temp).alias("temperature"))
+
+
+def normalize_ed_triage(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Add registration time and convert Fahrenheit temperatures to Celsius."""
+    df = add_reg_time_by_stay_id(df, edstays_df)
+    return convert_fahrenheit_to_celsius(df)
+
+
+def normalize_ed_vitalsign(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Add registration time and convert Fahrenheit temperatures to Celsius."""
+    df = add_reg_time_by_stay_id(df, edstays_df)
+    return convert_fahrenheit_to_celsius(df)
+
+
+def add_hcpcs_description(df: pl.LazyFrame, d_hcpcs_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Join hcpcsevents with d_hcpcs to add long_description column.
+
+    Uses long_description from d_hcpcs if not null, otherwise uses short_description
+    from d_hcpcs.
+    """
+    d_hcpcs_df = d_hcpcs_df.select(
+        "code",
+        pl.coalesce("long_description", "short_description").alias("long_description"),
+    )
+    return df.join(d_hcpcs_df, left_on="hcpcs_cd", right_on="code", how="left")
 
 
 def fix_static_data(
@@ -274,25 +325,41 @@ def fix_static_data(
 
 FUNCTIONS = {
     "hosp/diagnoses_icd": (
-        add_discharge_time_by_hadm_id,
-        ("hosp/admissions", ["hadm_id", "dischtime"]),
+        add_icd_info,
+        [
+            ("hosp/admissions", ["hadm_id", "dischtime"]),
+            ("hosp/d_icd_diagnoses", ["icd_code", "icd_version", "long_title"]),
+        ],
+    ),
+    "hosp/procedures_icd": (
+        add_icd_info,
+        [
+            ("hosp/admissions", ["hadm_id", "dischtime"]),
+            ("hosp/d_icd_procedures", ["icd_code", "icd_version", "long_title"]),
+        ],
     ),
     "hosp/drgcodes": (
         add_discharge_time_by_hadm_id,
-        ("hosp/admissions", ["hadm_id", "dischtime"]),
+        [("hosp/admissions", ["hadm_id", "dischtime"])],
     ),
     "hosp/patients": (
         fix_static_data,
-        ("hosp/admissions", ["subject_id", "deathtime"]),
+        [("hosp/admissions", ["subject_id", "deathtime"])],
     ),
     "hosp/admissions": (normalize_hosp_admissions, None),
+    "hosp/transfers": (normalize_hosp_transfers, None),
     "hosp/labevents": (
         add_lab_item_text,
-        ("hosp/d_labitems", ["itemid", "label", "fluid"]),
+        [("hosp/d_labitems", ["itemid", "label", "fluid"])],
+    ),
+    "hosp/hcpcsevents": (
+        add_hcpcs_description,
+        [("hosp/d_hcpcs", ["code", "long_description", "short_description"])],
     ),
     "ed/edstays": (normalize_edstays, None),
-    "ed/diagnosis": (normalize_ed_diagnosis, ("ed/edstays", ["stay_id", "outtime"])),
-    "ed/triage": (normalize_ed_triage, ("ed/edstays", ["stay_id", "intime"])),
+    "ed/diagnosis": (normalize_ed_diagnosis, [("ed/edstays", ["stay_id", "outtime"])]),
+    "ed/triage": (normalize_ed_triage, [("ed/edstays", ["stay_id", "intime"])]),
+    "ed/vitalsign": (normalize_ed_vitalsign, [("ed/edstays", ["stay_id", "intime"])]),
 }
 
 ICD_DFS_TO_FIX = [
@@ -368,8 +435,8 @@ def main(cfg: DictConfig):
                 print(f"Done with {pfx}. Continuing")
                 continue
 
-            fn, need_df = FUNCTIONS[pfx]
-            if not need_df:
+            fn, need_dfs = FUNCTIONS[pfx]
+            if not need_dfs:
                 st = datetime.now()
                 logger.info(f"Processing {pfx}...")
                 df = read_fn(fp)
@@ -380,46 +447,83 @@ def main(cfg: DictConfig):
                     f"  Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - st}"
                 )
             else:
-                needed_pfx, needed_cols = need_df
-                if needed_pfx not in dfs_to_load:
-                    dfs_to_load[needed_pfx] = {"fps": set(), "cols": set()}
+                for needed_pfx, needed_cols in need_dfs:
+                    if needed_pfx not in dfs_to_load:
+                        dfs_to_load[needed_pfx] = {"fps": set(), "cols": set()}
 
-                dfs_to_load[needed_pfx]["fps"].add(fp)
-                dfs_to_load[needed_pfx]["cols"].update(needed_cols)
+                    dfs_to_load[needed_pfx]["fps"].add(fp)
+                    dfs_to_load[needed_pfx]["cols"].update(needed_cols)
 
+    # Load all dependency dataframes
+    loaded_dfs: dict[str, pl.LazyFrame] = {}
     for df_to_load_pfx, fps_and_cols in dfs_to_load.items():
-        fps = fps_and_cols["fps"]
         cols = list(fps_and_cols["cols"])
-
         df_to_load_fp, df_to_load_read_fn = get_supported_fp(input_dir, df_to_load_pfx)
 
         st = datetime.now()
-
         logger.info(
             f"Loading {str(df_to_load_fp.resolve())} for manipulating other dataframes..."
         )
+
+        # ICD tables need string schema for icd_code/icd_version
+        read_kwargs = {}
+        if df_to_load_pfx in ["hosp/d_icd_diagnoses", "hosp/d_icd_procedures"]:
+            read_kwargs["schema_overrides"] = {
+                "icd_code": pl.String,
+                "icd_version": pl.String,
+            }
+
         if df_to_load_fp.suffix in [".csv.gz"]:
-            df = df_to_load_read_fn(df_to_load_fp, columns=cols)
+            loaded_dfs[df_to_load_pfx] = df_to_load_read_fn(
+                df_to_load_fp, columns=cols, **read_kwargs
+            )
         else:
-            df = df_to_load_read_fn(df_to_load_fp)
+            loaded_dfs[df_to_load_pfx] = df_to_load_read_fn(
+                df_to_load_fp, **read_kwargs
+            )
         logger.info(f"  Loaded in {datetime.now() - st}")
 
+    # Process files that have dependencies
+    processed_fps: set[str] = set()
+    for df_to_load_pfx, fps_and_cols in dfs_to_load.items():
+        fps = fps_and_cols["fps"]
+
         for fp in fps:
+            fp_key = str(fp.resolve())
+            if fp_key in processed_fps:
+                continue
+
             pfx = get_shard_prefix(input_dir, fp)
             out_fp = MEDS_input_dir / f"{pfx}.parquet"
 
+            if out_fp.is_file():
+                processed_fps.add(fp_key)
+                continue
+
+            fn, need_dfs = FUNCTIONS[pfx]
+
+            # Check if all dependencies are loaded
+            if need_dfs is None:
+                continue
+            dep_pfxs = [dep_pfx for dep_pfx, _ in need_dfs]
+            if not all(dep_pfx in loaded_dfs for dep_pfx in dep_pfxs):
+                continue
+
             logger.info(f"  Processing dependent df @ {pfx}...")
-            fn, _ = FUNCTIONS[pfx]
 
             fp_st = datetime.now()
             logger.info(f"    Loading {str(fp.resolve())}...")
-            fp_df = seen_fps[str(fp.resolve())](fp)
+            fp_df = seen_fps[fp_key](fp)
             logger.info(f"    Loaded in {datetime.now() - fp_st}")
-            processed_df = fn(fp_df, df)  # type: ignore
+
+            # Pass all dependency dfs in order
+            dep_dfs = [loaded_dfs[dep_pfx] for dep_pfx in dep_pfxs]
+            processed_df = fn(fp_df, *dep_dfs)  # type: ignore
             write_lazyframe(processed_df, out_fp)
             logger.info(
                 f"    Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - fp_st}"
             )
+            processed_fps.add(fp_key)
 
     for pfx, fn in ICD_DFS_TO_FIX:
         fp, read_fn = get_supported_fp(input_dir, pfx)

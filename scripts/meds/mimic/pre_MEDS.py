@@ -217,11 +217,12 @@ def normalize_edstays(df: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def normalize_hosp_admissions(df: pl.LazyFrame) -> pl.LazyFrame:
-    """Convert admission_type, admission_location, and discharge_location to title case."""
+    """Convert admission_type, admission_location, discharge_location, and race to title case."""
     return df.with_columns(
         pl.col("admission_type").str.to_titlecase(),
         pl.col("admission_location").str.to_titlecase(),
         pl.col("discharge_location").str.to_titlecase(),
+        pl.col("race").str.to_titlecase(),
     )
 
 
@@ -319,7 +320,9 @@ def fix_static_data(
         "subject_id",
         pl.coalesce(pl.col("deathtime"), pl.col("dod")).alias("dod"),
         (pl.col("anchor_year") - pl.col("anchor_age")).cast(str).alias("year_of_birth"),
-        "gender",
+        pl.col("gender")
+        .replace_strict({"F": "Female", "M": "Male"}, default=pl.col("gender"))
+        .alias("gender"),
     )
 
 

@@ -68,10 +68,12 @@ download-demo-data: download-mimic-demo download-mimic-ed-demo
 run-meds-extraction:
 	@rm -rf $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
 	@mkdir -p $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
+
 	@echo "Running pre-MEDS processing..."
 	uv run python "$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/pre_MEDS.py" \
 		input_dir="$(CURDIR)/$(MIMICIV_RAW_DIR)" \
 		cohort_dir="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)"
+
 	@echo "Running MEDS transform runner..."
 	MIMICIV_PRE_MEDS_DIR="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)" \
 	MIMICIV_MEDS_COHORT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \

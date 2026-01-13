@@ -194,10 +194,57 @@ def format_to_3sf(expr: pl.Expr) -> pl.Expr:
     )
 
 
+def round_to_3sf(expr: pl.Expr) -> pl.Expr:
+    """Round a numeric expression to 3 significant figures as float."""
+    return expr.map_elements(
+        lambda x: float(f"{x:.3g}") if x is not None else None,
+        return_dtype=pl.Float64,
+    )
+
+
 def add_lab_item_text(df: pl.LazyFrame, d_labitems_df: pl.LazyFrame) -> pl.LazyFrame:
     """Joins labevents with d_labitems to add item_text, fluid, and merged value columns."""
     d_labitems_df = d_labitems_df.select("itemid", "fluid", "label")
     return df.join(d_labitems_df, on="itemid", how="left")
+
+
+def normalize_edstays(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Convert arrival_transport and disposition columns to title case."""
+    return df.with_columns(
+        pl.col("arrival_transport").str.to_titlecase(),
+        pl.col("disposition").str.to_titlecase(),
+    )
+
+
+def normalize_hosp_admissions(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Convert admission_type, admission_location, and discharge_location to title case."""
+    return df.with_columns(
+        pl.col("admission_type").str.to_titlecase(),
+        pl.col("admission_location").str.to_titlecase(),
+        pl.col("discharge_location").str.to_titlecase(),
+    )
+
+
+def normalize_ed_diagnosis(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Add outtime and convert icd_title to title case."""
+    df = add_out_time_by_stay_id(df, edstays_df)
+    return df.with_columns(pl.col("icd_title").str.to_titlecase())
+
+
+def normalize_ed_triage(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Add registration time and convert Fahrenheit temperatures to Celsius."""
+
+    df = add_reg_time_by_stay_id(df, edstays_df)
+
+    temp_expr = pl.col("temperature").cast(pl.Float64, strict=False)
+
+    converted_temp = (
+        pl.when(temp_expr.is_not_null() & (temp_expr > 45))
+        .then((temp_expr - 32) * 5 / 9)
+        .otherwise(temp_expr)
+    )
+
+    return df.with_columns(round_to_3sf(converted_temp).alias("temperature"))
 
 
 def fix_static_data(
@@ -238,12 +285,14 @@ FUNCTIONS = {
         fix_static_data,
         ("hosp/admissions", ["subject_id", "deathtime"]),
     ),
+    "hosp/admissions": (normalize_hosp_admissions, None),
     "hosp/labevents": (
         add_lab_item_text,
         ("hosp/d_labitems", ["itemid", "label", "fluid"]),
     ),
-    "ed/diagnosis": (add_out_time_by_stay_id, ("ed/edstays", ["stay_id", "outtime"])),
-    "ed/triage": (add_reg_time_by_stay_id, ("ed/edstays", ["stay_id", "intime"])),
+    "ed/edstays": (normalize_edstays, None),
+    "ed/diagnosis": (normalize_ed_diagnosis, ("ed/edstays", ["stay_id", "outtime"])),
+    "ed/triage": (normalize_ed_triage, ("ed/edstays", ["stay_id", "intime"])),
 }
 
 ICD_DFS_TO_FIX = [
@@ -325,7 +374,7 @@ def main(cfg: DictConfig):
                 logger.info(f"Processing {pfx}...")
                 df = read_fn(fp)
                 logger.info(f"  Loaded raw {fp} in {datetime.now() - st}")
-                processed_df = fn(df)
+                processed_df = fn(df)  # type: ignore
                 write_lazyframe(processed_df, out_fp)
                 logger.info(
                     f"  Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - st}"

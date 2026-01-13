@@ -4,67 +4,102 @@
 subject_id_col: subject_id
 ed/edstays:
   ed_registration:
-    code: ED_REGISTRATION
+    code:
+      - Emergency Department Registration via
+      - col(arrival_transport)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    text_value: arrival_transport
+    # text_value: arrival_transport
     hadm_id: hadm_id
     stay_id: stay_id
   ed_out:
-    code: ED_OUT
+    code:
+      - Emergency Department Discharge to
+      - col(disposition)
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    text_value: disposition
+    # text_value: disposition
     hadm_id: hadm_id
     stay_id: stay_id
 
 ed/triage:
   temperature:
-    code: TEMPERATURE
-    numeric_value: temperature
+    code:
+      - "Temperature"
+      - col(temperature)
+      - "°C"
+    # numeric_value: temperature
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
     stay_id: stay_id
   heart_rate:
-    code: HEART_RATE
-    numeric_value: heartrate
+    code:
+      - "Heart Rate"
+      - col(heartrate)
+      - "bpm"
+    # numeric_value: heartrate
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
     stay_id: stay_id
   respiratory_rate:
-    code: RESPIRATORY_RATE
-    numeric_value: resprate
+    code:
+      - "Respiratory Rate"
+      - col(resprate)
+      - breaths/min
+    # numeric_value: resprate
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
     stay_id: stay_id
   o2_saturation:
-    code: O2_SATURATION
-    numeric_value: o2sat
+    code:
+      - "O2 Saturation"
+      - col(o2sat)
+      - "%"
+    # numeric_value: o2sat
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
     stay_id: stay_id
   blood_pressure:
-    code: "Blood Pressure"
-    numeric_value: sbp
-    text_value: dbp
+    code:
+      - "Blood Pressure"
+      - col(sbp)
+      - /
+      - col(dbp)
+      - "mmHg"
+    # numeric_value: sbp
+    # text_value: dbp
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
     stay_id: stay_id
   pain:
-    code: PAIN
-    text_value: pain
+    code:
+      - "Pain Score"
+      - col(pain)
+    # text_value: pain
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
     stay_id: stay_id
   acuity:
-    code: ACUITY
-    numeric_value: acuity
+    code:
+      - Acuity Score
+      - col(acuity)
+      - (1 highest - 5 lowest severity)
+    # numeric_value: acuity
+    time: col(intime)
+    time_format:
+      - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
+  # Not in Ethos-ARES!
+  chiefcomplaint:
+    code:
+      - "Chief Complaint"
+      - col(chiefcomplaint)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -73,10 +108,10 @@ ed/triage:
 ed/diagnosis:
   diagnosis:
     code:
-      - DIAGNOSIS
-      - ICD
-      - col(icd_version)
-      - col(icd_code)
+      - Emergency Department Diagnosis
+      - col(icd_title)
+      # - col(icd_version)
+      # - col(icd_code)
     stay_id: stay_id
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -84,19 +119,20 @@ ed/diagnosis:
 hosp/admissions:
   admission:
     code:
-      - HOSPITAL_ADMISSION
+      - "Hospital Admission. Type: "
       - col(admission_type)
+      - "Source: "
       - col(admission_location)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    insurance: insurance
-    language: language
-    marital_status: marital_status
-    race: race
-    hadm_id: hadm_id
+    # insurance: insurance
+    # language: language
+    # marital_status: marital_status
+    # race: race
+    # hadm_id: hadm_id
   discharge:
     code:
-      - HOSPITAL_DISCHARGE
+      - "Hospital Discharge. Location: "
       - col(discharge_location)
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"

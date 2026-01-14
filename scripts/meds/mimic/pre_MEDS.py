@@ -15,158 +15,6 @@ from MEDS_transforms.utils import get_shard_prefix, write_lazyframe
 from omegaconf import DictConfig
 
 
-def add_dot(code: pl.Expr, position: int) -> pl.Expr:
-    """Adds a dot to the code expression at the specified position.
-
-    Args:
-        code: The code expression.
-        position: The position to add the dot.
-
-    Returns:
-        The expression which would yield the code string with a dot added at the specified position
-
-    Example:
-        >>> pl.select(add_dot(pl.lit("12345"), 3))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ 123.45  │
-        └─────────┘
-        >>> pl.select(add_dot(pl.lit("12345"), 1))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ 1.2345  │
-        └─────────┘
-        >>> pl.select(add_dot(pl.lit("12345"), 6))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ 12345   │
-        └─────────┘
-    """
-    return (
-        pl.when(code.str.len_chars() > position)
-        .then(code.str.slice(0, position) + "." + code.str.slice(position))
-        .otherwise(code)
-    )
-
-
-def add_icd_diagnosis_dot(icd_version: pl.Expr, icd_code: pl.Expr) -> pl.Expr:
-    """Adds the appropriate dot to the ICD diagnosis codebased on the version.
-
-    Args:
-        icd_version: The ICD version.
-        icd_code: The ICD code.
-
-    Returns:
-        The ICD code with appropriate dot syntax based on the version.
-
-    Examples:
-        >>> pl.select(add_icd_diagnosis_dot(pl.lit("9"), pl.lit("12345")))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ 123.45  │
-        └─────────┘
-        >>> pl.select(add_icd_diagnosis_dot(pl.lit("9"), pl.lit("E1234")))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ E123.4  │
-        └─────────┘
-        >>> pl.select(add_icd_diagnosis_dot(pl.lit("9"), pl.lit("F1234")))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ F12.34  │
-        └─────────┘
-        >>> pl.select(add_icd_diagnosis_dot(pl.lit("10"), pl.lit("12345")))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ 123.45  │
-        └─────────┘
-        >>> pl.select(add_icd_diagnosis_dot(pl.lit("10"), pl.lit("E1234")))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ E12.34  │
-        └─────────┘
-    """
-
-    icd9_code = (
-        pl.when(icd_code.str.starts_with("E"))
-        .then(add_dot(icd_code, 4))
-        .otherwise(add_dot(icd_code, 3))
-    )
-
-    icd10_code = add_dot(icd_code, 3)
-
-    return pl.when(icd_version == "9").then(icd9_code).otherwise(icd10_code)
-
-
-def add_icd_procedure_dot(icd_version: pl.Expr, icd_code: pl.Expr) -> pl.Expr:
-    """Adds the appropriate dot to the ICD procedure code based on the version.
-
-    Args:
-        icd_version: The ICD version.
-        icd_code: The ICD code.
-
-    Returns:
-        The ICD code with appropriate dot syntax based on the version.
-
-    Examples:
-        >>> pl.select(add_icd_procedure_dot(pl.lit("9"), pl.lit("12345")))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ 12.345  │
-        └─────────┘
-        >>> pl.select(add_icd_procedure_dot(pl.lit("10"), pl.lit("12345")))
-        shape: (1, 1)
-        ┌─────────┐
-        │ literal │
-        │ ---     │
-        │ str     │
-        ╞═════════╡
-        │ 12345   │
-        └─────────┘
-    """
-
-    icd9_code = add_dot(icd_code, 2)
-    icd10_code = icd_code
-
-    return pl.when(icd_version == "9").then(icd9_code).otherwise(icd10_code)
-
-
 def add_time_by_id(
     df: pl.LazyFrame, time_source_df: pl.LazyFrame, on: str, time_column_name: str
 ) -> pl.LazyFrame:
@@ -417,11 +265,6 @@ FUNCTIONS = {
     "ed/vitalsign": (normalize_ed_vitalsign, [("ed/edstays", ["stay_id", "intime"])]),
 }
 
-ICD_DFS_TO_FIX = [
-    ("hosp/d_icd_diagnoses", add_icd_diagnosis_dot),
-    ("hosp/d_icd_procedures", add_icd_procedure_dot),
-]
-
 
 @hydra.main(version_base=None, config_path="configs", config_name="pre_MEDS")
 def main(cfg: DictConfig):
@@ -476,7 +319,7 @@ def main(cfg: DictConfig):
 
         out_fp.parent.mkdir(parents=True, exist_ok=True)
 
-        if pfx not in FUNCTIONS and pfx not in [p for p, _ in ICD_DFS_TO_FIX]:
+        if pfx not in FUNCTIONS:
             logger.info(
                 f"No function needed for {pfx}: "
                 f"Symlinking {str(fp.resolve())} to {str(out_fp.resolve())}"
@@ -579,34 +422,6 @@ def main(cfg: DictConfig):
                 f"    Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - fp_st}"
             )
             processed_fps.add(fp_key)
-
-    for pfx, fn in ICD_DFS_TO_FIX:
-        fp, read_fn = get_supported_fp(input_dir, pfx)
-        out_fp = MEDS_input_dir / f"{pfx}.parquet"
-
-        if out_fp.is_file():
-            print(f"Done with {pfx}. Continuing")
-            continue
-
-        if fp.suffix != ".parquet":
-            read_fn = partial(read_fn, infer_schema=False)
-
-        st = datetime.now()
-        logger.info(f"Processing {pfx}...")
-        processed_df = (
-            read_fn(fp)
-            .collect()
-            .with_columns(
-                fn(
-                    pl.col("icd_version").cast(pl.String),
-                    pl.col("icd_code").cast(pl.String),
-                ).alias("norm_icd_code")
-            )
-        )
-        processed_df.write_parquet(out_fp, use_pyarrow=True)
-        logger.info(
-            f"  Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - st}"
-        )
 
     logger.info(
         f"Done! All dataframes processed and written to {str(MEDS_input_dir.resolve())}"

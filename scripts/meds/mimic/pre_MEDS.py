@@ -15,62 +15,27 @@ from MEDS_transforms.utils import get_shard_prefix, write_lazyframe
 from omegaconf import DictConfig
 
 
-def add_time_by_id(
-    df: pl.LazyFrame, time_source_df: pl.LazyFrame, on: str, time_column_name: str
+def join_time_column(
+    target_df: pl.LazyFrame,
+    time_source_df: pl.LazyFrame,
+    on: str,
+    time_column_name: str,
 ) -> pl.LazyFrame:
-    """Joins the two dataframes by ``on`` and adds the time to the original dataframe."""
-
+    """Join time column from source dataframe to target dataframe by specified key."""
     time_source_df = time_source_df.select(on, time_column_name)
-    return df.join(time_source_df, on=on, how="left")
+    return target_df.join(time_source_df, on=on, how="left")
 
 
-add_discharge_time_by_hadm_id = partial(
-    add_time_by_id, on="hadm_id", time_column_name="dischtime"
-)
-add_out_time_by_stay_id = partial(
-    add_time_by_id, on="stay_id", time_column_name="outtime"
-)
-add_reg_time_by_stay_id = partial(
-    add_time_by_id, on="stay_id", time_column_name="intime"
-)
-
-
-def format_to_3sf(expr: pl.Expr) -> pl.Expr:
-    """Format a numeric expression to 3 significant figures as a string."""
-    return expr.map_elements(
-        lambda x: f"{x:.3g}" if x is not None else None, return_dtype=pl.String
-    )
-
-
-def round_to_3sf(expr: pl.Expr) -> pl.Expr:
-    """Round a numeric expression to 3 significant figures as float."""
-    return expr.map_elements(
-        lambda x: float(f"{x:.3g}") if x is not None else None,
-        return_dtype=pl.Float64,
-    )
+# Helper partials for common time joins
+add_dischtime = partial(join_time_column, on="hadm_id", time_column_name="dischtime")
+add_outtime = partial(join_time_column, on="stay_id", time_column_name="outtime")
+add_intime = partial(join_time_column, on="stay_id", time_column_name="intime")
 
 
 def convert_date_to_end_of_day_timestamp(
     df: pl.LazyFrame, date_column: str = "chartdate"
 ) -> pl.LazyFrame:
-    """Convert date-only columns to timestamps at 23:59:59.
-
-    This is used for dataframes that record data to date precision only
-    (hosp/hcpcsevents, hosp/omr, hosp/procedures_icd) to convert them
-    to timestamps at the end of the day (23:59:59).
-
-    Args:
-        df: The dataframe to process.
-        date_column: The name of the date column to convert.
-
-    Returns:
-        The dataframe with the date column converted to end-of-day timestamp.
-
-    Examples:
-        >>> df = pl.LazyFrame({"chartdate": ["2025-01-01", "2025-01-02"]})
-        >>> convert_date_to_end_of_day_timestamp(df)
-        # chartdate becomes "2025-01-01 23:59:59", "2025-01-02 23:59:59"
-    """
+    """Convert date-only columns to timestamps at 23:59:59 (end of day)."""
     return df.with_columns(
         pl.col(date_column)
         .str.to_date()
@@ -79,26 +44,28 @@ def convert_date_to_end_of_day_timestamp(
     )
 
 
-def add_lab_item_text(df: pl.LazyFrame, d_labitems_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Joins labevents with d_labitems to add item_text, fluid, and merged value columns."""
+def process_lab_events_df(
+    lab_events_df: pl.LazyFrame, d_labitems_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Enrich lab events with item labels and fluid types from d_labitems reference."""
     d_labitems_df = d_labitems_df.select("itemid", "fluid", "label")
-    result = df.join(d_labitems_df, on="itemid", how="left")
+    result = lab_events_df.join(d_labitems_df, on="itemid", how="left")
     # Convert null values in valueuom column to empty strings
     result = result.with_columns(pl.col("valueuom").fill_null(""))
     return result
 
 
-def normalize_edstays(df: pl.LazyFrame) -> pl.LazyFrame:
+def process_ed_stays_df(ed_stays_df: pl.LazyFrame) -> pl.LazyFrame:
     """Convert arrival_transport and disposition columns to title case."""
-    return df.with_columns(
+    return ed_stays_df.with_columns(
         pl.col("arrival_transport").str.to_titlecase(),
         pl.col("disposition").str.to_titlecase(),
     )
 
 
-def normalize_hosp_admissions(df: pl.LazyFrame) -> pl.LazyFrame:
-    """Convert admission_type, admission_location, discharge_location, and race to title case."""
-    return df.with_columns(
+def process_admissions_df(admissions_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Convert admission fields to title case."""
+    return admissions_df.with_columns(
         pl.col("admission_type").str.to_titlecase(),
         pl.col("admission_location").str.to_titlecase(),
         pl.col("discharge_location").str.to_titlecase(),
@@ -106,17 +73,17 @@ def normalize_hosp_admissions(df: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
-def normalize_hosp_drgcodes_with_time(
-    df: pl.LazyFrame, admissions_df: pl.LazyFrame
+def process_drgcodes_df(
+    drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Add discharge time and convert description to title case."""
-    df = add_discharge_time_by_hadm_id(df, admissions_df)
-    return df.with_columns(pl.col("description").str.to_titlecase())
+    drgcodes_df = add_dischtime(drgcodes_df, admissions_df)
+    return drgcodes_df.with_columns(pl.col("description").str.to_titlecase())
 
 
-def normalize_hosp_transfers(df: pl.LazyFrame) -> pl.LazyFrame:
+def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
     """Map eventtype values to descriptive text."""
-    return df.with_columns(
+    return hosp_transfers_df.with_columns(
         pl.col("eventtype").replace_strict(
             {
                 "discharge": "Discharge from",
@@ -131,37 +98,44 @@ def normalize_hosp_transfers(df: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
-def add_icd_info(
-    df: pl.LazyFrame, admissions_df: pl.LazyFrame, d_icd_df: pl.LazyFrame
+def process_icd_df(
+    icd_df: pl.LazyFrame, admissions_df: pl.LazyFrame, d_icd_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Add discharge time from admissions and long_title from an ICD reference table.
-
-    For procedures_icd, also converts chartdate from date-only to timestamp at 23:59:59.
-    """
-    df = add_discharge_time_by_hadm_id(df, admissions_df)
+    """Enrich ICD codes with discharge times, descriptive titles, and convert chartdate to timestamp."""
+    icd_df = add_dischtime(icd_df, admissions_df)
     # Cast to string to match d_icd schema
-    df = df.with_columns(
+    icd_df = icd_df.with_columns(
         pl.col("icd_code").cast(pl.String),
         pl.col("icd_version").cast(pl.String),
     )
-    df = df.join(
+    icd_df = icd_df.join(
         d_icd_df.select("icd_code", "icd_version", "long_title"),
         on=["icd_code", "icd_version"],
         how="left",
     )
     # Convert chartdate to timestamp at 23:59:59 (applies to procedures_icd)
-    if "chartdate" in df.schema:
-        df = convert_date_to_end_of_day_timestamp(df)
-    return df
+    if "chartdate" in icd_df.schema:
+        icd_df = convert_date_to_end_of_day_timestamp(icd_df)
+    return icd_df
 
 
-def normalize_ed_diagnosis(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Add outtime and convert icd_title to title case."""
-    df = add_out_time_by_stay_id(df, edstays_df)
-    return df.with_columns(pl.col("icd_title").str.to_titlecase())
+def process_ed_diagnosis_df(
+    ed_diagnosis_df: pl.LazyFrame, edstays_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Add ED departure time and convert diagnosis title to title case."""
+    ed_diagnosis_df = add_outtime(ed_diagnosis_df, edstays_df)
+    return ed_diagnosis_df.with_columns(pl.col("icd_title").str.to_titlecase())
 
 
-def convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
+def _round_to_3sf(expr: pl.Expr) -> pl.Expr:
+    """Round a numeric expression to 3 significant figures as float."""
+    return expr.map_elements(
+        lambda x: float(f"{x:.3g}") if x is not None else None,
+        return_dtype=pl.Float64,
+    )
+
+
+def _convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
     """Convert Fahrenheit temperatures to Celsius (assumes F if > 45)."""
     temp_expr = pl.col("temperature").cast(pl.Float64, strict=False)
     converted_temp = (
@@ -169,53 +143,40 @@ def convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
         .then((temp_expr - 32) * 5 / 9)
         .otherwise(temp_expr)
     )
-    return df.with_columns(round_to_3sf(converted_temp).alias("temperature"))
+    return df.with_columns(_round_to_3sf(converted_temp).alias("temperature"))
 
 
-def normalize_ed_triage(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Add registration time and convert Fahrenheit temperatures to Celsius."""
-    df = add_reg_time_by_stay_id(df, edstays_df)
-    return convert_fahrenheit_to_celsius(df)
+def process_ed_vitals_with_time_df(
+    ed_vitals_with_time_df: pl.LazyFrame, edstays_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Add ED registration time and convert Fahrenheit temperatures to Celsius (for triage and vitalsign tables)."""
+    ed_vitals_with_time_df = add_intime(ed_vitals_with_time_df, edstays_df)
+    return _convert_fahrenheit_to_celsius(ed_vitals_with_time_df)
 
 
-def normalize_ed_vitalsign(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Add registration time and convert Fahrenheit temperatures to Celsius."""
-    df = add_reg_time_by_stay_id(df, edstays_df)
-    return convert_fahrenheit_to_celsius(df)
-
-
-def add_hcpcs_description(df: pl.LazyFrame, d_hcpcs_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Join hcpcsevents with d_hcpcs to add long_description column and convert chartdate to timestamp.
-
-    Uses long_description from d_hcpcs if not null, otherwise uses short_description
-    from d_hcpcs. Also converts chartdate from date-only to timestamp at 23:59:59.
-    """
+def process_hcpcs_events_df(
+    hcpcs_events_df: pl.LazyFrame, d_hcpcs_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Enrich HCPCS events with procedure descriptions (long or short) and convert chartdate to timestamp."""
     d_hcpcs_df = d_hcpcs_df.select(
         "code",
         pl.coalesce("long_description", "short_description").alias("long_description"),
     )
-    df = df.join(d_hcpcs_df, left_on="hcpcs_cd", right_on="code", how="left")
-    return convert_date_to_end_of_day_timestamp(df)
+    hcpcs_events_df = hcpcs_events_df.join(
+        d_hcpcs_df, left_on="hcpcs_cd", right_on="code", how="left"
+    )
+    return convert_date_to_end_of_day_timestamp(hcpcs_events_df)
 
 
-def fix_static_data(
-    raw_static_df: pl.LazyFrame, death_times_df: pl.LazyFrame
+def process_patients_df(
+    patients_df: pl.LazyFrame, death_times_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Fixes the static data by adding the death time to the static data and fixes the DOB nonsense.
-
-    Args:
-        raw_static_df: The raw static data.
-        death_times_df: The death times data.
-
-    Returns:
-        The fixed static data.
-    """
-
+    """Process patient demographics by merging death times, calculating birth years, and standardizing gender values."""
     death_times_df = death_times_df.group_by("subject_id").agg(
         pl.col("deathtime").min()
     )
 
-    return raw_static_df.join(death_times_df, on="subject_id", how="left").select(
+    return patients_df.join(death_times_df, on="subject_id", how="left").select(
         "subject_id",
         pl.coalesce(pl.col("deathtime"), pl.col("dod")).alias("dod"),
         (pl.col("anchor_year") - pl.col("anchor_age")).cast(str).alias("year_of_birth"),
@@ -225,44 +186,62 @@ def fix_static_data(
     )
 
 
+# Processing functions registry for MIMIC-IV data files.
+# Format: {
+#     "relative/path/to/file": (
+#         processing_function,
+#         [("dependency/path", ["required", "columns"]), ...] or None
+#     )
+# }
+# - Key: Relative path from MIMIC data root (e.g., "hosp/admissions")
+# - Value: Tuple of (function, dependencies)
+#   - function: Callable that processes the dataframe
+#   - dependencies: List of (path, columns) tuples for required reference tables,
+#                   or None if no dependencies needed
 FUNCTIONS = {
     "hosp/diagnoses_icd": (
-        add_icd_info,
+        process_icd_df,
         [
             ("hosp/admissions", ["hadm_id", "dischtime"]),
             ("hosp/d_icd_diagnoses", ["icd_code", "icd_version", "long_title"]),
         ],
     ),
     "hosp/procedures_icd": (
-        add_icd_info,
+        process_icd_df,
         [
             ("hosp/admissions", ["hadm_id", "dischtime"]),
             ("hosp/d_icd_procedures", ["icd_code", "icd_version", "long_title"]),
         ],
     ),
     "hosp/drgcodes": (
-        normalize_hosp_drgcodes_with_time,
+        process_drgcodes_df,
         [("hosp/admissions", ["hadm_id", "dischtime"])],
     ),
     "hosp/patients": (
-        fix_static_data,
+        process_patients_df,
         [("hosp/admissions", ["subject_id", "deathtime"])],
     ),
-    "hosp/admissions": (normalize_hosp_admissions, None),
-    "hosp/transfers": (normalize_hosp_transfers, None),
+    "hosp/admissions": (process_admissions_df, None),
+    "hosp/transfers": (process_hosp_transfers_df, None),
     "hosp/labevents": (
-        add_lab_item_text,
+        process_lab_events_df,
         [("hosp/d_labitems", ["itemid", "label", "fluid"])],
     ),
     "hosp/hcpcsevents": (
-        add_hcpcs_description,
+        process_hcpcs_events_df,
         [("hosp/d_hcpcs", ["code", "long_description", "short_description"])],
     ),
     "hosp/omr": (convert_date_to_end_of_day_timestamp, None),
-    "ed/edstays": (normalize_edstays, None),
-    "ed/diagnosis": (normalize_ed_diagnosis, [("ed/edstays", ["stay_id", "outtime"])]),
-    "ed/triage": (normalize_ed_triage, [("ed/edstays", ["stay_id", "intime"])]),
-    "ed/vitalsign": (normalize_ed_vitalsign, [("ed/edstays", ["stay_id", "intime"])]),
+    "ed/edstays": (process_ed_stays_df, None),
+    "ed/diagnosis": (process_ed_diagnosis_df, [("ed/edstays", ["stay_id", "outtime"])]),
+    "ed/triage": (
+        process_ed_vitals_with_time_df,
+        [("ed/edstays", ["stay_id", "intime"])],
+    ),
+    "ed/vitalsign": (
+        process_ed_vitals_with_time_df,
+        [("ed/edstays", ["stay_id", "intime"])],
+    ),
 }
 
 
@@ -273,11 +252,39 @@ def main(cfg: DictConfig):
     Inputs are the raw MIMIC files, read from the `input_dir` config parameter. Output files are
     either symlinked (if they are not modified) or written in processed form to the `MEDS_input_dir`
     config parameter. Hydra is used to manage configuration parameters and logging.
+
+    Big Picture:
+    -----------
+    This function transforms raw MIMIC-IV data files into a format suitable for MEDS processing.
+    Some files require no transformation (symlinked), others need simple processing, and some
+    require joining with lookup tables for enrichment.
+
+    Processing occurs in three phases:
+
+    Phase 1 - Independent File Processing:
+        - Discovers all input files recursively
+        - For files without dependencies: processes immediately or symlinks if no processing needed
+        - For files with dependencies: defers processing and tracks what dependencies are needed
+
+    Phase 2 - Dependency Loading:
+        - Loads all required lookup tables and reference dataframes into memory
+        - Optimizes memory usage by loading only the columns actually needed
+        - Handles special cases like ICD code tables that need string preservation
+
+    Phase 3 - Dependent File Processing:
+        - Processes files that require dependencies, now that dependencies are loaded
+        - Joins main dataframes with their required lookup tables
+        - Ensures all dependencies are available before attempting processing
+
+    This approach minimizes memory usage and processing time by loading dependencies once
+    and reusing them across multiple files that need the same reference data.
     """
 
+    # Set up input and output directory paths from configuration
     input_dir = Path(cfg.input_dir)
     MEDS_input_dir = Path(cfg.cohort_dir)
 
+    # Check if processing has already been completed (to avoid re-processing)
     done_fp = MEDS_input_dir / ".done"
     if done_fp.is_file() and not cfg.do_overwrite:
         logger.info(
@@ -286,14 +293,21 @@ def main(cfg: DictConfig):
         )
         exit(0)
 
+    # Discover all data files in the input directory (including subdirectories)
     all_fps = list(input_dir.rglob("*.*")) + list(input_dir.rglob("*/*.*"))
 
-    dfs_to_load: dict[str, dict[str, set | set]] = {}
-    seen_fps = {}
+    # Initialize data structures to track files that need dependencies loaded
+    dfs_to_load: dict[
+        str, dict[str, set | set]
+    ] = {}  # Files requiring other dataframes
+    seen_fps = {}  # Cache of file paths and their read functions
 
+    # PHASE 1: Process files without dependencies or create symlinks
     for in_fp in all_fps:
+        # Get the standardized prefix for this file (e.g., 'hosp/admissions')
         pfx = get_shard_prefix(input_dir, in_fp)
 
+        # Try to find a compatible dataframe file and get its read function
         try:
             fp, read_fn = get_supported_fp(input_dir, pfx)
         except FileNotFoundError:
@@ -303,67 +317,70 @@ def main(cfg: DictConfig):
             )
             continue
 
+        # Configure CSV reading with extended schema inference for better type detection
         if fp.suffix in [".csv", ".csv.gz"]:
             read_fn = partial(read_fn, infer_schema_length=100000)
 
-        if str(fp.resolve()) in seen_fps:
+        # Avoid processing the same file multiple times
+        fp_key = str(fp.resolve())
+        if fp_key in seen_fps:
             continue
-        else:
-            seen_fps[str(fp.resolve())] = read_fn
+        seen_fps[fp_key] = read_fn
 
+        # Determine output file path, maintaining directory structure
         out_fp = MEDS_input_dir / fp.relative_to(input_dir)
 
+        # Skip if already processed
         if out_fp.is_file():
-            print(f"Done with {pfx}. Continuing")
+            logger.debug(f"Already processed {pfx}, skipping")
             continue
 
+        # Create output directory structure
         out_fp.parent.mkdir(parents=True, exist_ok=True)
 
         if pfx not in FUNCTIONS:
-            logger.info(
-                f"No function needed for {pfx}: "
-                f"Symlinking {str(fp.resolve())} to {str(out_fp.resolve())}"
-            )
+            logger.info(f"No function needed for {pfx}: Symlinking to output")
             relative_in_fp = fp.relative_to(out_fp.resolve().parent, walk_up=True)
             out_fp.symlink_to(relative_in_fp)
             continue
-        elif pfx in FUNCTIONS:
-            out_fp = MEDS_input_dir / f"{pfx}.parquet"
-            if out_fp.is_file():
-                print(f"Done with {pfx}. Continuing")
-                continue
 
-            fn, need_dfs = FUNCTIONS[pfx]
-            if not need_dfs:
-                st = datetime.now()
-                logger.info(f"Processing {pfx}...")
-                df = read_fn(fp)
-                logger.info(f"  Loaded raw {fp} in {datetime.now() - st}")
-                processed_df = fn(df)  # type: ignore
-                write_lazyframe(processed_df, out_fp)
-                logger.info(
-                    f"  Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - st}"
-                )
-            else:
-                for needed_pfx, needed_cols in need_dfs:
-                    if needed_pfx not in dfs_to_load:
-                        dfs_to_load[needed_pfx] = {"fps": set(), "cols": set()}
+        # File requires processing
+        out_fp = MEDS_input_dir / f"{pfx}.parquet"
+        if out_fp.is_file():
+            logger.debug(f"Already processed {pfx}, skipping")
+            continue
 
-                    dfs_to_load[needed_pfx]["fps"].add(fp)
-                    dfs_to_load[needed_pfx]["cols"].update(needed_cols)
+        fn, need_dfs = FUNCTIONS[pfx]
 
-    # Load all dependency dataframes
+        # If this file doesn't need dependencies, process it immediately
+        if not need_dfs:
+            st = datetime.now()
+            logger.info(f"Processing {pfx}...")
+            df = read_fn(fp)
+            logger.info(f"  Loaded in {datetime.now() - st}")
+            processed_df = fn(df)  # type: ignore
+            write_lazyframe(processed_df, out_fp)
+            logger.info(f"  Wrote to {out_fp.name} in {datetime.now() - st}")
+            continue
+
+        # File needs dependencies - defer processing and track requirements
+        for needed_pfx, needed_cols in need_dfs:
+            if needed_pfx not in dfs_to_load:
+                dfs_to_load[needed_pfx] = {"fps": set(), "cols": set()}
+            dfs_to_load[needed_pfx]["fps"].add(fp)
+            dfs_to_load[needed_pfx]["cols"].update(needed_cols)
+
+    # PHASE 2: Load all dependency dataframes (lookup tables, etc.)
     loaded_dfs: dict[str, pl.LazyFrame] = {}
     for df_to_load_pfx, fps_and_cols in dfs_to_load.items():
+        # Get only the columns we actually need from this dependency
         cols = list(fps_and_cols["cols"])
         df_to_load_fp, df_to_load_read_fn = get_supported_fp(input_dir, df_to_load_pfx)
 
         st = datetime.now()
-        logger.info(
-            f"Loading {str(df_to_load_fp.resolve())} for manipulating other dataframes..."
-        )
+        logger.info(f"Loading dependency {df_to_load_pfx}...")
 
-        # ICD tables need string schema for icd_code/icd_version
+        # Special handling: ICD tables need string schema to preserve leading zeros
         read_kwargs = {}
         if df_to_load_pfx in ["hosp/d_icd_diagnoses", "hosp/d_icd_procedures"]:
             read_kwargs["schema_overrides"] = {
@@ -371,6 +388,7 @@ def main(cfg: DictConfig):
                 "icd_version": pl.String,
             }
 
+        # Load only needed columns for compressed files to save memory
         if df_to_load_fp.suffix in [".csv.gz"]:
             loaded_dfs[df_to_load_pfx] = df_to_load_read_fn(
                 df_to_load_fp, columns=cols, **read_kwargs
@@ -381,11 +399,12 @@ def main(cfg: DictConfig):
             )
         logger.info(f"  Loaded in {datetime.now() - st}")
 
-    # Process files that have dependencies
+    # PHASE 3: Process files that have dependencies (now that dependencies are loaded)
     processed_fps: set[str] = set()
     for df_to_load_pfx, fps_and_cols in dfs_to_load.items():
         fps = fps_and_cols["fps"]
 
+        # Process each file that depends on this loaded dataframe
         for fp in fps:
             fp_key = str(fp.resolve())
             if fp_key in processed_fps:
@@ -394,39 +413,37 @@ def main(cfg: DictConfig):
             pfx = get_shard_prefix(input_dir, fp)
             out_fp = MEDS_input_dir / f"{pfx}.parquet"
 
+            # Skip if already processed
             if out_fp.is_file():
                 processed_fps.add(fp_key)
                 continue
 
             fn, need_dfs = FUNCTIONS[pfx]
 
-            # Check if all dependencies are loaded
+            # Ensure all required dependencies are available before processing
             if need_dfs is None:
                 continue
             dep_pfxs = [dep_pfx for dep_pfx, _ in need_dfs]
             if not all(dep_pfx in loaded_dfs for dep_pfx in dep_pfxs):
                 continue
 
-            logger.info(f"  Processing dependent df @ {pfx}...")
+            logger.info(f"  Processing {pfx} with dependencies...")
 
+            # Load the main dataframe and apply transformation with dependencies
             fp_st = datetime.now()
-            logger.info(f"    Loading {str(fp.resolve())}...")
             fp_df = seen_fps[fp_key](fp)
             logger.info(f"    Loaded in {datetime.now() - fp_st}")
 
-            # Pass all dependency dfs in order
+            # Pass the main dataframe plus all dependency dataframes to the processing function
             dep_dfs = [loaded_dfs[dep_pfx] for dep_pfx in dep_pfxs]
             processed_df = fn(fp_df, *dep_dfs)  # type: ignore
             write_lazyframe(processed_df, out_fp)
-            logger.info(
-                f"    Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - fp_st}"
-            )
+            logger.info(f"    Wrote to {out_fp.name} in {datetime.now() - fp_st}")
             processed_fps.add(fp_key)
 
-    logger.info(
-        f"Done! All dataframes processed and written to {str(MEDS_input_dir.resolve())}"
-    )
+    # Mark processing as complete
     done_fp.write_text(f"Finished at {datetime.now()}")
+    logger.info(f"Pre-MEDS processing complete. Output in {MEDS_input_dir}")
 
 
 if __name__ == "__main__":

@@ -14,6 +14,8 @@ from MEDS_transforms.extract.utils import get_supported_fp
 from MEDS_transforms.utils import get_shard_prefix, write_lazyframe
 from omegaconf import DictConfig
 
+END_OF_DAY = pl.time(23, 59, 59, 999999)
+
 
 def join_time_column(
     target_df: pl.LazyFrame,
@@ -37,10 +39,7 @@ def convert_date_to_end_of_day_timestamp(
 ) -> pl.LazyFrame:
     """Convert date-only columns to timestamps at 23:59:59 (end of day)."""
     return df.with_columns(
-        pl.col(date_column)
-        .str.to_date()
-        .dt.combine(pl.time(23, 59, 59))
-        .alias(date_column)
+        pl.col(date_column).str.to_date().dt.combine(END_OF_DAY).alias(date_column)
     )
 
 
@@ -129,10 +128,10 @@ def process_ed_diagnosis_df(
 
 def _round_to_3sf(expr: pl.Expr) -> pl.Expr:
     """Round a numeric expression to 3 significant figures as float."""
-    return expr.map_elements(
-        lambda x: float(f"{x:.3g}") if x is not None else None,
-        return_dtype=pl.Float64,
-    )
+    # Use native Polars operations for better performance
+    log_val = expr.abs().log10()
+    scale = (2 - log_val.floor()).cast(pl.Int32)
+    return (expr * (10**scale)).round(0) / (10**scale)
 
 
 def _convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -172,13 +171,21 @@ def process_patients_df(
     patients_df: pl.LazyFrame, death_times_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Process patient demographics by merging death times, calculating birth years, and standardizing gender values."""
-    death_times_df = death_times_df.group_by("subject_id").agg(
-        pl.col("deathtime").min()
+    # Parse datetime once before aggregation for better performance
+    death_times_df = (
+        death_times_df.with_columns(pl.col("deathtime").str.strptime(pl.Datetime))
+        .group_by("subject_id")
+        .agg(pl.col("deathtime").min())
     )
 
     return patients_df.join(death_times_df, on="subject_id", how="left").select(
         "subject_id",
-        pl.coalesce(pl.col("deathtime"), pl.col("dod")).alias("dod"),
+        # If we have a deathtime from admissions, use it; otherwise use dod converted to timestamp at end of day
+        pl.coalesce(
+            pl.col("deathtime"),
+            # dod is date only, convert to timestamp at end of day
+            pl.col("dod").str.strptime(pl.Date).dt.combine(END_OF_DAY),
+        ).alias("dod"),
         (pl.col("anchor_year") - pl.col("anchor_age")).cast(str).alias("year_of_birth"),
         pl.col("gender")
         .replace_strict({"F": "Female", "M": "Male"}, default=pl.col("gender"))
@@ -301,6 +308,7 @@ def main(cfg: DictConfig):
         str, dict[str, set | set]
     ] = {}  # Files requiring other dataframes
     seen_fps = {}  # Cache of file paths and their read functions
+    created_dirs = set()  # Track created directories to avoid redundant mkdir calls
 
     # PHASE 1: Process files without dependencies or create symlinks
     for in_fp in all_fps:
@@ -335,8 +343,11 @@ def main(cfg: DictConfig):
             logger.debug(f"Already processed {pfx}, skipping")
             continue
 
-        # Create output directory structure
-        out_fp.parent.mkdir(parents=True, exist_ok=True)
+        # Create output directory structure (only if not already created)
+        out_dir = out_fp.parent
+        if out_dir not in created_dirs:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            created_dirs.add(out_dir)
 
         if pfx not in FUNCTIONS:
             logger.info(f"No function needed for {pfx}: Symlinking to output")
@@ -346,10 +357,6 @@ def main(cfg: DictConfig):
 
         # File requires processing
         out_fp = MEDS_input_dir / f"{pfx}.parquet"
-        if out_fp.is_file():
-            logger.debug(f"Already processed {pfx}, skipping")
-            continue
-
         fn, need_dfs = FUNCTIONS[pfx]
 
         # If this file doesn't need dependencies, process it immediately

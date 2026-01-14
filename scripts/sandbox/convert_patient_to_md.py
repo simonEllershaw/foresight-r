@@ -13,12 +13,16 @@ def patient_to_text(patient_df: pl.DataFrame) -> str:
     # Detect changes in date, time, and category for header insertion
     df = patient_df.with_columns(
         [
-            # Track when values change from previous row
-            (pl.col("date") != pl.col("date").shift(1)).alias("date_changed"),
-            (pl.col("time_str") != pl.col("time_str").shift(1)).alias("time_changed"),
-            (pl.col("category") != pl.col("category").shift(1)).alias(
-                "category_changed"
-            ),
+            # Track when date, time or category changes from previous row
+            (pl.col("date") != pl.col("date").shift(1))
+            .fill_null(True)
+            .alias("date_changed"),
+            (pl.col("time_str") != pl.col("time_str").shift(1))
+            .fill_null(True)
+            .alias("time_changed"),
+            (pl.col("category") != pl.col("category").shift(1))
+            .fill_null(True)
+            .alias("category_changed"),
             # Check if date is null
             pl.col("date").is_null().alias("date_is_null"),
         ]
@@ -31,16 +35,16 @@ def patient_to_text(patient_df: pl.DataFrame) -> str:
     df = df.with_columns(
         [
             # Date header (only when date changes)
-            pl.when(pl.col("date_changed"))
-            .then(
-                pl.when(pl.col("date_is_null"))
-                .then(pl.lit("## Null\n"))
-                .otherwise(pl.concat_str([pl.lit("## "), pl.col("date"), pl.lit("\n")]))
-            )
+            pl.when(pl.col("date_changed") & ~pl.col("date_is_null"))
+            .then(pl.concat_str([pl.lit("## "), pl.col("date"), pl.lit("\n")]))
             .otherwise(pl.lit(""))
             .alias("date_header"),
-            # Time header (only when time changes and date is not null)
-            pl.when(pl.col("time_changed") & ~pl.col("date_is_null"))
+            # Time header (only when time changes and date is not null and time is not 00:00)
+            pl.when(
+                pl.col("time_changed")
+                & ~pl.col("date_is_null")
+                & (pl.col("time_str") != "00:00")
+            )
             .then(pl.concat_str([pl.lit("### "), pl.col("time_str"), pl.lit("\n")]))
             .otherwise(pl.lit(""))
             .alias("time_header"),
@@ -103,27 +107,19 @@ def main():
         [
             pl.col("code")
             .str.replace_all("//", " ")
-            .str.replace_all("___", "")
-            .str.replace_all("UNK", "Missing")
+            .str.replace_all("___|UNK", "?")
             .str.replace_all(r"(\s){2,}", " "),
         ]
     )
 
-    # Then split the cleaned code and add time columns
     df = df.with_columns(
         [
+            # Add time column HH:MM from timestamp
             pl.col("time").dt.date().alias("date"),
             pl.col("time").dt.strftime("%H:%M").alias("time_str"),
-            pl.col("code")
-            .str.split(" | ")
-            .list.first()
-            .fill_null("")
-            .alias("category"),
-            pl.col("code")
-            .str.split(" | ")
-            .list.get(1, null_on_oob=True)
-            .fill_null(pl.col("code"))
-            .alias("text"),
+            # Split code into category and text
+            pl.col("code").str.split(" | ").list.first().alias("category"),
+            pl.col("code").str.split(" | ").list.get(1).alias("text"),
         ]
     )
 
@@ -132,7 +128,7 @@ def main():
     print(f"Filtering to subject_id: {subject_id}")
 
     # Filter to one patient and sort by time
-    patient_data = df.filter(pl.col("subject_id") == subject_id).sort("time")
+    patient_data = df.filter(pl.col("subject_id") == subject_id)
 
     print(f"Found {len(patient_data)} events for patient {subject_id}")
 

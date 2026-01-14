@@ -114,8 +114,8 @@ hosp/admissions:
     time_format: "%Y-%m-%d %H:%M:%S"
   race:
     code:
-      - "Static Information |"
-      - "Race:"
+      - "Demographics |"
+      - "Race"
       - col(race)
     time: null
   discharge:
@@ -258,20 +258,20 @@ hosp/omr:
 hosp/patients:
   gender:
     code:
-      - "Static Information |"
-      - "Gender:"
+      - "Demographics |"
+      - "Gender"
       - col(gender)
     time: null
+  # Not using the MEDS official code for birth and death (MEDS_BIRTH/MEDS_DEATH).
   dob:
     code:
-      - "Birth |"
-      - "MEDS_BIRTH" # This is the MEDS official code for birth.
-    time: col(year_of_birth)
-    time_format: "%Y"
+      - "Demographics | Year of Birth"
+      - col(year_of_birth)
+    time: null
   death:
     code:
       - "Death |"
-      - "MEDS_DEATH" # This is the MEDS official code for death.
+      - "Death"
     time: col(dod)
     time_format:
       - "%Y-%m-%d %H:%M:%S"

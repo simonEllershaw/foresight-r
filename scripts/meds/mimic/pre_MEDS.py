@@ -6,6 +6,7 @@
 from datetime import datetime
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 import hydra
 import polars as pl
@@ -301,12 +302,10 @@ def main(cfg: DictConfig):
         exit(0)
 
     # Discover all data files in the input directory (including subdirectories)
-    all_fps = list(input_dir.rglob("*.*")) + list(input_dir.rglob("*/*.*"))
+    all_fps = input_dir.rglob("*.*")
 
     # Initialize data structures to track files that need dependencies loaded
-    dfs_to_load: dict[
-        str, dict[str, set | set]
-    ] = {}  # Files requiring other dataframes
+    dfs_to_load: dict[str, dict[str, set]] = {}  # Files requiring other dataframes
     seen_fps = {}  # Cache of file paths and their read functions
     created_dirs = set()  # Track created directories to avoid redundant mkdir calls
 
@@ -326,7 +325,7 @@ def main(cfg: DictConfig):
             continue
 
         # Configure CSV reading with extended schema inference for better type detection
-        if fp.suffix in [".csv", ".csv.gz"]:
+        if fp.suffix in (".csv", ".csv.gz"):
             read_fn = partial(read_fn, infer_schema_length=100000)
 
         # Avoid processing the same file multiple times
@@ -388,22 +387,17 @@ def main(cfg: DictConfig):
         logger.info(f"Loading dependency {df_to_load_pfx}...")
 
         # Special handling: ICD tables need string schema to preserve leading zeros
-        read_kwargs = {}
-        if df_to_load_pfx in ["hosp/d_icd_diagnoses", "hosp/d_icd_procedures"]:
+        read_kwargs: dict[str, Any] = {}
+        if df_to_load_pfx in ("hosp/d_icd_diagnoses", "hosp/d_icd_procedures"):
             read_kwargs["schema_overrides"] = {
                 "icd_code": pl.String,
                 "icd_version": pl.String,
             }
-
         # Load only needed columns for compressed files to save memory
-        if df_to_load_fp.suffix in [".csv.gz"]:
-            loaded_dfs[df_to_load_pfx] = df_to_load_read_fn(
-                df_to_load_fp, columns=cols, **read_kwargs
-            )
-        else:
-            loaded_dfs[df_to_load_pfx] = df_to_load_read_fn(
-                df_to_load_fp, **read_kwargs
-            )
+        if df_to_load_fp.suffix == ".csv.gz":
+            read_kwargs["columns"] = cols
+
+        loaded_dfs[df_to_load_pfx] = df_to_load_read_fn(df_to_load_fp, **read_kwargs)
         logger.info(f"  Loaded in {datetime.now() - st}")
 
     # PHASE 3: Process files that have dependencies (now that dependencies are loaded)

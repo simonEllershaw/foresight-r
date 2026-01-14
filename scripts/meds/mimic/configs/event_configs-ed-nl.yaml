@@ -262,16 +262,16 @@ hosp/patients:
       - "Gender"
       - col(gender)
     time: null
-  # Not using the MEDS official code for birth and death (MEDS_BIRTH/MEDS_DEATH).
   dob:
     code:
-      - "Demographics | Year of Birth"
-      - col(year_of_birth)
-    time: null
+      - "BIRTH | MEDS_BIRTH"
+    time: col(year_of_birth)
+    time_format: "%Y"
   death:
     code:
+      # Not using the MEDS official code for death (MEDS_DEATH).
       - "Death |"
-      - "Death"
+      - "MEDS_DEATH"
     time: col(dod)
     time_format:
       - "%Y-%m-%d %H:%M:%S"

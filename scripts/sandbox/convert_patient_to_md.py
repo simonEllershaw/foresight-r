@@ -6,55 +6,55 @@ from pathlib import Path
 END_OF_DAY = pl.time(23, 59, 59, 999999)
 
 
+def changed(col: str, default: bool = False) -> pl.Expr:
+    """Detect when a column value changes from the previous row."""
+    return (pl.col(col) != pl.col(col).shift(1)).fill_null(default)
+
+
+def clean_code(col: str = "code") -> pl.Expr:
+    """Clean up code column: normalize separators and unknowns."""
+    return (
+        pl.col(col)
+        .str.replace_all("//", " ")
+        .str.replace_all("___|UNK", "?")
+        .str.replace_all(r"(\s){2,}", " ")
+    )
+
+
+def format_age(age_days: pl.Expr) -> pl.Expr:
+    """Format age in days as 'X years Y days' string."""
+    return pl.format("{} years {} days", age_days // 365, age_days % 365)
+
+
 def patient_to_text(patient_df: pl.DataFrame) -> str:
-    """Convert a patient's MEDS data to free text EHR format using pure Polars.
+    """Convert a patient's MEDS data to free text EHR format.
 
-    Expects patient_df to already have date, time_str, category, text, and age_header_text columns computed.
-    And expects patient_df to be sorted by time.
+    Expects columns: time_str, time_unspecified, category, text, age_header_text.
+    Data should be sorted by time.
     """
-    date_is_null = pl.col("date").is_null()
+    age_changed = changed("age_header_text")
+    time_changed = changed("time_str")
+    category_changed = changed("category", default=True)
+    section_changed = age_changed | time_changed
 
-    # Fill null logic allows for age/time headers not to show for demographics with null dates but still show category
     df = patient_df.with_columns(
         [
-            # Change detection
-            (pl.col("age_header_text") != pl.col("age_header_text").shift(1))
-            .fill_null(False)
-            .alias("age_changed"),
-            (pl.col("time_str") != pl.col("time_str").shift(1))
-            .fill_null(False)
-            .alias("time_changed"),
-            (pl.col("category") != pl.col("category").shift(1))
-            .fill_null(True)
-            .alias("category_changed"),
-            date_is_null.alias("date_is_null"),
-        ]
-    ).with_columns(
-        [
-            # Build complete markdown line for each row
             pl.concat_str(
                 [
-                    # Age header
-                    pl.when(pl.col("age_changed") & ~pl.col("date_is_null"))
+                    # Age header (## Age X years Y days)
+                    pl.when(age_changed)
                     .then(pl.format("## Age {}\n", pl.col("age_header_text")))
                     .otherwise(pl.lit("")),
-                    # Time header (show when time changes OR age changes)
-                    pl.when(
-                        (pl.col("time_changed") | pl.col("age_changed"))
-                        & ~pl.col("date_is_null")
-                    )
+                    # Time header (### HH:MM or ### Time Unspecified)
+                    pl.when(section_changed)
                     .then(
                         pl.when(pl.col("time_unspecified"))
                         .then(pl.lit("### Time Unspecified\n"))
                         .otherwise(pl.format("### {}\n", pl.col("time_str")))
                     )
                     .otherwise(pl.lit("")),
-                    # Category header (show when category changes OR time changes OR age changes)
-                    pl.when(
-                        pl.col("category_changed")
-                        | pl.col("time_changed")
-                        | pl.col("age_changed")
-                    )
+                    # Category header (#### Category)
+                    pl.when(section_changed | category_changed)
                     .then(pl.format("#### {}\n", pl.col("category")))
                     .otherwise(pl.lit("")),
                     # Text content
@@ -64,95 +64,60 @@ def patient_to_text(patient_df: pl.DataFrame) -> str:
         ]
     )
 
-    # Join all lines together
-    markdown_body = "".join(df["full_line"].to_list())
-    return f"# Patient's Electronic Health Record\n\n{markdown_body.rstrip()}"
+    return f"# Patient's Electronic Health Record\n\n{''.join(df['full_line'].to_list()).rstrip()}"
+
+
+def load_and_prepare_data(meds_dir: Path) -> pl.DataFrame:
+    """Load MEDS parquet files and prepare columns for markdown conversion."""
+    train_files = list((meds_dir / "train").glob("*.parquet"))
+    if not train_files:
+        raise FileNotFoundError(f"No training files found in {meds_dir / 'train'}")
+
+    print(f"Found {len(train_files)} training files")
+    print(f"Loading: {train_files[0]}")
+    df = pl.read_parquet(train_files[0])
+
+    # Clean code and extract components
+    code_parts = clean_code().str.split(" | ")
+    df = df.with_columns(
+        [
+            clean_code().alias("code"),
+            pl.col("time").dt.date().alias("date"),
+            pl.col("time").dt.strftime("%H:%M").alias("time_str"),
+            (pl.col("time").dt.time() == END_OF_DAY).alias("time_unspecified"),
+            code_parts.list.first().alias("category"),
+            code_parts.list.get(1).alias("text"),
+            pl.col("code").str.contains("BIRTH | MEDS_BIRTH").alias("is_birth"),
+        ]
+    )
+
+    # Join DOB and compute age
+    dob_df = df.filter(pl.col("is_birth")).select(
+        "subject_id", pl.col("date").alias("dob")
+    )
+    df = df.join(dob_df, on="subject_id", how="left")
+    age_days = (pl.col("date") - pl.col("dob")).dt.total_days()
+
+    return df.with_columns(format_age(age_days).alias("age_header_text"))
 
 
 def main():
-    # Set paths
-    PROJECT_ROOT = Path(__file__).parent.parent.parent
-    MEDS_DIR = PROJECT_ROOT / "data/mimic-iv-meds/data"
-    OUTPUT_DIR = PROJECT_ROOT / "data/outputs"
+    project_root = Path(__file__).parent.parent.parent
+    meds_dir = project_root / "data/mimic-iv-meds/data"
+    output_dir = project_root / "data/outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create output directory if it doesn't exist
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    df = load_and_prepare_data(meds_dir)
 
-    # Load training data
-    train_files = list((MEDS_DIR / "train").glob("*.parquet"))
-
-    if not train_files:
-        print(f"No training files found in {MEDS_DIR / 'train'}")
-        return
-
-    print(f"Found {len(train_files)} training files")
-
-    # Load first file
-    sample_file = train_files[0]
-    print(f"Loading: {sample_file}")
-    df = pl.read_parquet(sample_file)
-
-    # Pre-compute all transformations on full dataframe for efficiency
-    # First, clean up the code column
-    df = df.with_columns(
-        [
-            pl.col("code")
-            .str.replace_all("//", " ")
-            .str.replace_all("___|UNK", "?")
-            .str.replace_all(r"(\s){2,}", " "),
-        ]
-    )
-
-    df = df.with_columns(
-        [
-            # Add time column HH:MM from timestamp
-            pl.col("time").dt.date().alias("date"),
-            pl.col("time").dt.time().alias("time_component"),
-            pl.col("time").dt.strftime("%H:%M").alias("time_str"),
-            # Split code into category and text
-            pl.col("code").str.split(" | ").list.first().alias("category"),
-            pl.col("code").str.split(" | ").list.get(1).alias("text"),
-        ]
-    ).with_columns(
-        [
-            # Check if time is unspecified (end of day timestamp)
-            (pl.col("time_component") == END_OF_DAY).alias("time_unspecified"),
-        ]
-    )
-
-    # Calculate age for all patients
-    # Get DOB for each subject from BIRTH | MEDS_BIRTH row
-    dob_per_subject = df.filter(
-        pl.col("code").str.contains("BIRTH | MEDS_BIRTH")
-    ).select(["subject_id", pl.col("date").alias("dob")])
-
-    df = df.join(dob_per_subject, on="subject_id", how="left")
-
-    age_days = (pl.col("date") - pl.col("dob")).dt.total_days()
-    df = df.with_columns(
-        [
-            age_days.alias("age_days_total"),
-            pl.when(pl.col("date").is_not_null())
-            .then(pl.format("{} years {} days", age_days // 365, age_days % 365))
-            .alias("age_header_text"),
-        ]
-    )
-
-    # Get first subject_id
     subject_id = df["subject_id"][0]
     print(f"Filtering to subject_id: {subject_id}")
 
-    # Filter to one patient and sort by time
-    patient_data = df.filter(pl.col("subject_id") == subject_id)
-
+    patient_data = df.filter((pl.col("subject_id") == subject_id) & ~pl.col("is_birth"))
     print(f"Found {len(patient_data)} events for patient {subject_id}")
-    # Convert to markdown
+
     ehr_markdown = patient_to_text(patient_data)
-
-    # Save to file
-    output_file = OUTPUT_DIR / f"ehr_{subject_id}.md"
+    output_file = output_dir / f"ehr_{subject_id}.md"
     output_file.write_text(ehr_markdown)
-
     print(f"Saved EHR to: {output_file}")
 
 

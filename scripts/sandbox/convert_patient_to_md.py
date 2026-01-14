@@ -14,6 +14,7 @@ def patient_to_text(patient_df: pl.DataFrame) -> str:
     df = patient_df.with_columns(
         [
             # Track when date, time or category changes from previous row
+            # Fill null handles first row and rows with null dates
             (pl.col("date") != pl.col("date").shift(1))
             .fill_null(True)
             .alias("date_changed"),

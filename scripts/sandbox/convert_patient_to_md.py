@@ -40,13 +40,16 @@ def patient_to_text(patient_df: pl.DataFrame) -> str:
             .then(pl.concat_str([pl.lit("## "), pl.col("date"), pl.lit("\n")]))
             .otherwise(pl.lit(""))
             .alias("date_header"),
-            # Time header (only when time changes and date is not null and time is not 00:00)
-            pl.when(
-                pl.col("time_changed")
-                & ~pl.col("date_is_null")
-                & (pl.col("time_str") != "00:00")
+            # Time header (only when time changes and date is not null)
+            pl.when(pl.col("time_changed") & ~pl.col("date_is_null"))
+            .then(
+                # Special case for 23:59 as unspecified time
+                pl.when(pl.col("time_str") == "23:59")
+                .then(pl.lit("### Time Unspecified\n"))
+                .otherwise(
+                    pl.concat_str([pl.lit("### "), pl.col("time_str"), pl.lit("\n")])
+                )
             )
-            .then(pl.concat_str([pl.lit("### "), pl.col("time_str"), pl.lit("\n")]))
             .otherwise(pl.lit(""))
             .alias("time_header"),
             # Category header (only when category changes)

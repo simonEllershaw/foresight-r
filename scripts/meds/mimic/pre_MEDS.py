@@ -202,6 +202,35 @@ def round_to_3sf(expr: pl.Expr) -> pl.Expr:
     )
 
 
+def convert_date_to_end_of_day_timestamp(
+    df: pl.LazyFrame, date_column: str = "chartdate"
+) -> pl.LazyFrame:
+    """Convert date-only columns to timestamps at 23:59:59.
+
+    This is used for dataframes that record data to date precision only
+    (hosp/hcpcsevents, hosp/omr, hosp/procedures_icd) to convert them
+    to timestamps at the end of the day (23:59:59).
+
+    Args:
+        df: The dataframe to process.
+        date_column: The name of the date column to convert.
+
+    Returns:
+        The dataframe with the date column converted to end-of-day timestamp.
+
+    Examples:
+        >>> df = pl.LazyFrame({"chartdate": ["2025-01-01", "2025-01-02"]})
+        >>> convert_date_to_end_of_day_timestamp(df)
+        # chartdate becomes "2025-01-01 23:59:59", "2025-01-02 23:59:59"
+    """
+    return df.with_columns(
+        pl.col(date_column)
+        .str.to_date()
+        .dt.combine(pl.time(23, 59, 59))
+        .alias(date_column)
+    )
+
+
 def add_lab_item_text(df: pl.LazyFrame, d_labitems_df: pl.LazyFrame) -> pl.LazyFrame:
     """Joins labevents with d_labitems to add item_text, fluid, and merged value columns."""
     d_labitems_df = d_labitems_df.select("itemid", "fluid", "label")
@@ -257,18 +286,25 @@ def normalize_hosp_transfers(df: pl.LazyFrame) -> pl.LazyFrame:
 def add_icd_info(
     df: pl.LazyFrame, admissions_df: pl.LazyFrame, d_icd_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Add discharge time from admissions and long_title from an ICD reference table."""
+    """Add discharge time from admissions and long_title from an ICD reference table.
+
+    For procedures_icd, also converts chartdate from date-only to timestamp at 23:59:59.
+    """
     df = add_discharge_time_by_hadm_id(df, admissions_df)
     # Cast to string to match d_icd schema
     df = df.with_columns(
         pl.col("icd_code").cast(pl.String),
         pl.col("icd_version").cast(pl.String),
     )
-    return df.join(
+    df = df.join(
         d_icd_df.select("icd_code", "icd_version", "long_title"),
         on=["icd_code", "icd_version"],
         how="left",
     )
+    # Convert chartdate to timestamp at 23:59:59 (applies to procedures_icd)
+    if "chartdate" in df.schema:
+        df = convert_date_to_end_of_day_timestamp(df)
+    return df
 
 
 def normalize_ed_diagnosis(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.LazyFrame:
@@ -301,16 +337,17 @@ def normalize_ed_vitalsign(df: pl.LazyFrame, edstays_df: pl.LazyFrame) -> pl.Laz
 
 
 def add_hcpcs_description(df: pl.LazyFrame, d_hcpcs_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Join hcpcsevents with d_hcpcs to add long_description column.
+    """Join hcpcsevents with d_hcpcs to add long_description column and convert chartdate to timestamp.
 
     Uses long_description from d_hcpcs if not null, otherwise uses short_description
-    from d_hcpcs.
+    from d_hcpcs. Also converts chartdate from date-only to timestamp at 23:59:59.
     """
     d_hcpcs_df = d_hcpcs_df.select(
         "code",
         pl.coalesce("long_description", "short_description").alias("long_description"),
     )
-    return df.join(d_hcpcs_df, left_on="hcpcs_cd", right_on="code", how="left")
+    df = df.join(d_hcpcs_df, left_on="hcpcs_cd", right_on="code", how="left")
+    return convert_date_to_end_of_day_timestamp(df)
 
 
 def fix_static_data(
@@ -373,6 +410,7 @@ FUNCTIONS = {
         add_hcpcs_description,
         [("hosp/d_hcpcs", ["code", "long_description", "short_description"])],
     ),
+    "hosp/omr": (convert_date_to_end_of_day_timestamp, None),
     "ed/edstays": (normalize_edstays, None),
     "ed/diagnosis": (normalize_ed_diagnosis, [("ed/edstays", ["stay_id", "outtime"])]),
     "ed/triage": (normalize_ed_triage, [("ed/edstays", ["stay_id", "intime"])]),

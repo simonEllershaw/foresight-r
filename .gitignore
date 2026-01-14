@@ -4,6 +4,7 @@
 
 .github/instructions/*
 data/*
+notebooks/sandbox/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

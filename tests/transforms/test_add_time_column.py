@@ -1,138 +1,202 @@
-#!/usr/bin/env python
 """Tests for the add_time_column transform."""
 
-from datetime import datetime, time
+from datetime import datetime
 
 import polars as pl
+import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.add_time_column import END_OF_DAY, add_time_column_fntr
+from foresight_r.transforms.add_time_column import add_time_column_fntr
 
 
-def test_add_time_column_basic():
-    """Test basic time extraction."""
-    df = pl.DataFrame(
+@pytest.fixture
+def sample_data():
+    """Sample MEDS data with various times."""
+    return pl.DataFrame(
         {
-            "subject_id": [1, 1, 2],
+            "subject_id": [1, 1, 1, 2, 2],
             "time": [
-                datetime(2020, 6, 15, 10, 30, 0),
-                datetime(2020, 6, 15, 14, 45, 30),
-                datetime(2021, 3, 10, 8, 15, 0),
+                datetime(2020, 1, 1, 10, 30, 45),
+                datetime(2020, 1, 1, 23, 59, 59, 999999),
+                datetime(2020, 1, 2, 0, 0, 0),
+                datetime(2020, 1, 3, 14, 15, 30),
+                datetime(2020, 1, 4, 23, 59, 59, 999999),
             ],
-            "code": ["Lab Test", "Medication", "Admission"],
+            "code": ["Lab", "Admission", "Midnight", "Procedure", "Discharge"],
         }
     ).lazy()
 
-    fn = add_time_column_fntr(DictConfig({"null_end_of_day": False}))
-    result = fn(df).collect()
 
-    assert "time_of_day" in result.columns
-    assert result["time_of_day"].to_list()[0] == time(10, 30, 0)
-    assert result["time_of_day"].to_list()[1] == time(14, 45, 30)
-    assert result["time_of_day"].to_list()[2] == time(8, 15, 0)
+class TestAddTimeColumnBasic:
+    """Basic functionality tests."""
 
+    def test_default_format(self, sample_data):
+        """Test default HH:MM:SS format."""
+        fn = add_time_column_fntr(DictConfig({}))
+        result = fn(sample_data).collect()
 
-def test_add_time_column_with_end_of_day_null():
-    """Test that END_OF_DAY is converted to null when null_end_of_day=True."""
-    df = pl.DataFrame(
-        {
-            "subject_id": [1, 1, 1],
-            "time": [
-                datetime(2020, 6, 15, 10, 30, 0),
-                datetime(2020, 6, 15, 23, 59, 59, 999999),
-                datetime(2021, 3, 10, 8, 15, 0),
-            ],
-            "code": ["Lab Test", "Discharge", "Admission"],
-        }
-    ).lazy()
+        assert "time_of_day" in result.columns
+        assert result["time_of_day"][0] == "10:30:45"
+        assert result["time_of_day"][2] == "00:00:00"
+        assert result["time_of_day"][3] == "14:15:30"
 
-    fn = add_time_column_fntr(DictConfig({"null_end_of_day": True}))
-    result = fn(df).collect()
+    def test_custom_format_hhmm(self, sample_data):
+        """Test HH:MM format."""
+        fn = add_time_column_fntr(DictConfig({"time_format": "%H:%M"}))
+        result = fn(sample_data).collect()
 
-    assert result["time_of_day"].to_list()[0] == time(10, 30, 0)
-    assert result["time_of_day"].to_list()[1] is None
-    assert result["time_of_day"].to_list()[2] == time(8, 15, 0)
+        assert result["time_of_day"][0] == "10:30"
+        assert result["time_of_day"][3] == "14:15"
 
+    def test_custom_format_12hour(self, sample_data):
+        """Test 12-hour format with AM/PM."""
+        fn = add_time_column_fntr(DictConfig({"time_format": "%I:%M %p"}))
+        result = fn(sample_data).collect()
 
-def test_add_time_column_with_end_of_day_kept():
-    """Test that END_OF_DAY is kept when null_end_of_day=False."""
-    df = pl.DataFrame(
-        {
-            "subject_id": [1, 1],
-            "time": [
-                datetime(2020, 6, 15, 10, 30, 0),
-                datetime(2020, 6, 15, 23, 59, 59, 999999),
-            ],
-            "code": ["Lab Test", "Discharge"],
-        }
-    ).lazy()
-
-    fn = add_time_column_fntr(DictConfig({"null_end_of_day": False}))
-    result = fn(df).collect()
-
-    assert result["time_of_day"].to_list()[0] == time(10, 30, 0)
-    assert result["time_of_day"].to_list()[1] == END_OF_DAY
+        assert result["time_of_day"][0] == "10:30 AM"
+        assert result["time_of_day"][3] == "02:15 PM"
 
 
-def test_add_time_column_default_config():
-    """Test that default config sets null_end_of_day to True."""
-    df = pl.DataFrame(
-        {
-            "subject_id": [1],
-            "time": [datetime(2020, 6, 15, 23, 59, 59, 999999)],
-            "code": ["Discharge"],
-        }
-    ).lazy()
+class TestEndOfDayReplacement:
+    """Tests for end-of-day replacement logic."""
 
-    fn = add_time_column_fntr(DictConfig({}))
-    result = fn(df).collect()
+    def test_replace_end_of_day_with_string(self, sample_data):
+        """Test replacing 23:59:59.999999 with custom string."""
+        cfg = DictConfig(
+            {
+                "replace_end_of_day": True,
+                "end_of_day_fill_value": "Time Unknown",
+            }
+        )
+        fn = add_time_column_fntr(cfg)
+        result = fn(sample_data).collect()
 
-    assert result["time_of_day"].to_list()[0] is None
+        # End-of-day times should be replaced
+        assert result["time_of_day"][1] == "Time Unknown"
+        assert result["time_of_day"][4] == "Time Unknown"
+
+        # Other times should be formatted normally
+        assert result["time_of_day"][0] == "10:30:45"
+        assert result["time_of_day"][2] == "00:00:00"
+
+    def test_replace_end_of_day_with_null(self, sample_data):
+        """Test replacing 23:59:59.999999 with null."""
+        cfg = DictConfig(
+            {
+                "replace_end_of_day": True,
+                "end_of_day_fill_value": None,
+            }
+        )
+        fn = add_time_column_fntr(cfg)
+        result = fn(sample_data).collect()
+
+        # End-of-day times should be null
+        assert result["time_of_day"][1] is None
+        assert result["time_of_day"][4] is None
+
+        # Other times should be formatted
+        assert result["time_of_day"][0] == "10:30:45"
+
+    def test_no_replacement_when_disabled(self, sample_data):
+        """Test that end-of-day is NOT replaced when replace_end_of_day=False."""
+        cfg = DictConfig(
+            {
+                "replace_end_of_day": False,
+                "end_of_day_fill_value": "Should Not Appear",
+            }
+        )
+        fn = add_time_column_fntr(cfg)
+        result = fn(sample_data).collect()
+
+        # End-of-day times should be formatted, not replaced
+        assert result["time_of_day"][1] == "23:59:59"
+        assert result["time_of_day"][4] == "23:59:59"
 
 
-def test_add_time_column_hhmm_format():
-    """Test that time_format='HH:MM' produces HH:MM string output."""
-    df = pl.DataFrame(
-        {
-            "subject_id": [1, 1, 2],
-            "time": [
-                datetime(2020, 6, 15, 10, 30, 45),
-                datetime(2020, 6, 15, 14, 45, 30),
-                datetime(2021, 3, 10, 8, 15, 0),
-            ],
-            "code": ["Lab Test", "Medication", "Admission"],
-        }
-    ).lazy()
+class TestEdgeCases:
+    """Edge case tests."""
 
-    fn = add_time_column_fntr(
-        DictConfig({"time_format": "HH:MM", "null_end_of_day": False})
-    )
-    result = fn(df).collect()
+    def test_empty_dataframe(self):
+        """Test with empty dataframe."""
+        empty_df = pl.DataFrame(
+            {
+                "subject_id": pl.Series([], dtype=pl.Int64),
+                "time": pl.Series([], dtype=pl.Datetime),
+                "code": pl.Series([], dtype=pl.Utf8),
+            }
+        ).lazy()
 
-    assert result["time_of_day"].to_list()[0] == "10:30"
-    assert result["time_of_day"].to_list()[1] == "14:45"
-    assert result["time_of_day"].to_list()[2] == "08:15"
+        fn = add_time_column_fntr(DictConfig({}))
+        result = fn(empty_df).collect()
 
+        assert "time_of_day" in result.columns
+        assert len(result) == 0
 
-def test_add_time_column_hhmm_with_end_of_day():
-    """Test that HH:MM format with null_end_of_day works correctly."""
-    df = pl.DataFrame(
-        {
-            "subject_id": [1, 1, 1],
-            "time": [
-                datetime(2020, 6, 15, 10, 30, 0),
-                datetime(2020, 6, 15, 23, 59, 59, 999999),
-                datetime(2021, 3, 10, 8, 15, 0),
-            ],
-            "code": ["Lab Test", "Discharge", "Admission"],
-        }
-    ).lazy()
+    def test_midnight_times(self):
+        """Test handling of midnight (00:00:00)."""
+        df = pl.DataFrame(
+            {
+                "subject_id": [1],
+                "time": [datetime(2020, 1, 1, 0, 0, 0)],
+                "code": ["Event"],
+            }
+        ).lazy()
 
-    fn = add_time_column_fntr(
-        DictConfig({"time_format": "HH:MM", "null_end_of_day": True})
-    )
-    result = fn(df).collect()
+        fn = add_time_column_fntr(DictConfig({"time_format": "%H:%M:%S"}))
+        result = fn(df).collect()
 
-    assert result["time_of_day"].to_list()[0] == "10:30"
-    assert result["time_of_day"].to_list()[1] is None
-    assert result["time_of_day"].to_list()[2] == "08:15"
+        assert result["time_of_day"][0] == "00:00:00"
+
+    def test_near_end_of_day_not_replaced(self):
+        """Test that times close to but not exactly end-of-day are not replaced."""
+        df = pl.DataFrame(
+            {
+                "subject_id": [1, 1, 1],
+                "time": [
+                    datetime(2020, 1, 1, 23, 59, 59, 999998),  # 1 microsecond before
+                    datetime(2020, 1, 1, 23, 59, 59, 0),  # No microseconds
+                    datetime(2020, 1, 1, 23, 59, 58, 999999),  # 1 second before
+                ],
+                "code": ["A", "B", "C"],
+            }
+        ).lazy()
+
+        cfg = DictConfig(
+            {
+                "replace_end_of_day": True,
+                "end_of_day_fill_value": "Replaced",
+            }
+        )
+        fn = add_time_column_fntr(cfg)
+        result = fn(df).collect()
+
+        # None of these should be replaced
+        assert result["time_of_day"][0] != "Replaced"
+        assert result["time_of_day"][1] != "Replaced"
+        assert result["time_of_day"][2] != "Replaced"
+
+    def test_preserves_other_columns(self, sample_data):
+        """Test that original columns are preserved."""
+        fn = add_time_column_fntr(DictConfig({}))
+        result = fn(sample_data).collect()
+
+        assert "subject_id" in result.columns
+        assert "time" in result.columns
+        assert "code" in result.columns
+        assert result["subject_id"].to_list() == [1, 1, 1, 2, 2]
+
+    def test_with_null_times(self):
+        """Test handling of null datetime values."""
+        df = pl.DataFrame(
+            {
+                "subject_id": [1, 1],
+                "time": [datetime(2020, 1, 1, 10, 30, 0), None],
+                "code": ["Event1", "Event2"],
+            }
+        ).lazy()
+
+        fn = add_time_column_fntr(DictConfig({}))
+        result = fn(df).collect()
+
+        assert result["time_of_day"][0] == "10:30:00"
+        assert result["time_of_day"][1] is None

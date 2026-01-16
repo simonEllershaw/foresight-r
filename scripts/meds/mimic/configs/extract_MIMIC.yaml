@@ -51,8 +51,9 @@ stage_configs:
     birth_code: "Born"
   add_time_column:
     _script: custom-meds-transform-add-time-column
-    null_end_of_day: true
-    time_format: "HH:MM"
+    time_format: "%H:%M"
+    replace_end_of_day: true
+    end_of_day_fill_value: "Time Unspecified"
 
 stages:
   - shard_events

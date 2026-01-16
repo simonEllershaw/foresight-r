@@ -49,6 +49,10 @@ stage_configs:
   calculate_age:
     _script: custom-meds-transform-calculate-age
     birth_code: "Born"
+  add_time_column:
+    _script: custom-meds-transform-add-time-column
+    null_end_of_day: true
+    time_format: "HH:MM"
 
 stages:
   - shard_events
@@ -59,6 +63,7 @@ stages:
   - create_prefix_column
   - clean_code
   - calculate_age
+  - add_time_column
   ##############################
   - extract_code_metadata
   - finalize_MEDS_metadata

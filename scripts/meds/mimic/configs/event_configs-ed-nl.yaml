@@ -78,7 +78,7 @@ ed/triage:
   acuity:
     code:
       - "Emergency Department Triage"
-      - "Severity Score"
+      - "Acuity Score"
       - col(acuity)
       - (1 high - 5 low)
     time: col(intime)
@@ -112,11 +112,23 @@ hosp/admissions:
       - col(admission_location)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
+  insurance:
+    code:
+      - "Insurance"
+      - col(insurance)
+    time: col(admittime)
+    time_format: "%Y-%m-%d %H:%M:%S"
   race:
     code:
       - "Demographics"
       - "Race"
       - col(race)
+    time: null
+  marital_status:
+    code:
+      - "Demographics"
+      - "Marital Status"
+      - col(marital_status)
     time: null
   discharge:
     code:

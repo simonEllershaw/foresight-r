@@ -34,8 +34,10 @@ stage_configs:
       test: 0.1
       tuning: null
       held_out: null
+  create_prefix_column:
+    _script: custom-meds-transform-create-prefix-column
   clean_code:
-    _script: MEDS_transform-clean_code
+    _script: custom-meds-transform-clean-code
     column: code
     patterns:
       - pattern: "//"
@@ -44,8 +46,9 @@ stage_configs:
         replacement: "?"
       - pattern: '(\s){2,}'
         replacement: " "
-  create_prefix_column:
-    _script: MEDS_transform-create_prefix_column
+  calculate_age:
+    _script: custom-meds-transform-calculate-age
+    birth_code: "Born"
 
 stages:
   - shard_events
@@ -55,6 +58,7 @@ stages:
   #### Custom transforms ####
   - create_prefix_column
   - clean_code
+  - calculate_age
   ##############################
   - extract_code_metadata
   - finalize_MEDS_metadata

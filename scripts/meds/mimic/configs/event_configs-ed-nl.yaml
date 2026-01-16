@@ -264,7 +264,7 @@ hosp/patients:
     time: null
   dob:
     code:
-      - "BIRTH | MEDS_BIRTH"
+      - "BIRTH | Born"
     time: col(year_of_birth)
     time_format: "%Y"
   death:

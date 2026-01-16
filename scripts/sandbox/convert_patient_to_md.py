@@ -87,16 +87,13 @@ def load_and_prepare_data(meds_dir: Path) -> pl.DataFrame:
             (pl.col("time").dt.time() == END_OF_DAY).alias("time_unspecified"),
             code_parts.list.first().alias("category"),
             code_parts.list.get(1).alias("text"),
-            pl.col("code").str.contains("BIRTH | MEDS_BIRTH").alias("is_birth"),
         ]
     )
 
-    # Join DOB and compute age
-    dob_df = df.filter(pl.col("is_birth")).select(
-        "subject_id", pl.col("date").alias("dob")
-    )
-    df = df.join(dob_df, on="subject_id", how="left")
-    age_days = (pl.col("date") - pl.col("dob")).dt.total_days()
+    # Compute age using window function (birth date is min date per subject)
+    age_days = (
+        pl.col("date") - pl.col("date").min().over("subject_id")
+    ).dt.total_days()
 
     return df.with_columns(format_age(age_days).alias("age_header_text"))
 
@@ -112,7 +109,7 @@ def main():
     subject_id = df["subject_id"][0]
     print(f"Filtering to subject_id: {subject_id}")
 
-    patient_data = df.filter((pl.col("subject_id") == subject_id) & ~pl.col("is_birth"))
+    patient_data = df.filter(pl.col("subject_id") == subject_id)
     print(f"Found {len(patient_data)} events for patient {subject_id}")
 
     ehr_markdown = patient_to_text(patient_data)

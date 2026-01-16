@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+"""Custom MAP stage that cleans code strings with configurable patterns."""
+
+from collections.abc import Callable
+
+import hydra
+import polars as pl
+from omegaconf import DictConfig
+
+from MEDS_transforms import PREPROCESS_CONFIG_YAML
+from MEDS_transforms.mapreduce.mapper import map_over
+
+
+def clean_code_fntr(
+    stage_cfg: DictConfig,
+) -> Callable[[pl.LazyFrame], pl.LazyFrame]:
+    """Returns a function that cleans code strings using configurable replacement patterns.
+
+    Args:
+        stage_cfg: Configuration containing:
+            - column: Column name to clean (default: "code")
+            - patterns: List of replacement patterns, each with 'pattern' and 'replacement' keys
+
+    Returns:
+        Function that transforms a LazyFrame by cleaning the specified column
+
+    Examples:
+        >>> df = pl.DataFrame({
+        ...     "subject_id": [1, 1, 2],
+        ...     "time": [1, 2, 3],
+        ...     "code": ["LAB//glucose", "ADMIT//UNK", "MED  //  aspirin"]
+        ... }).lazy()
+        >>> cfg = DictConfig({
+        ...     "column": "code",
+        ...     "patterns": [
+        ...         {"pattern": "//", "replacement": " "},
+        ...         {"pattern": "UNK", "replacement": "?"},
+        ...         {"pattern": r"(\\s){2,}", "replacement": " "}
+        ...     ]
+        ... })
+        >>> fn = clean_code_fntr(cfg)
+        >>> result = fn(df).collect()
+        >>> result.select("code")
+        shape: (3, 1)
+        ┌──────────────┐
+        │ code         │
+        │ ---          │
+        │ str          │
+        ╞══════════════╡
+        │ LAB glucose  │
+        │ ADMIT ?      │
+        │ MED aspirin  │
+        └──────────────┘
+    """
+    column = stage_cfg.get("column", "code")
+    patterns = stage_cfg.get("patterns", [])
+
+    if not patterns:
+        raise ValueError("At least one pattern must be specified in stage_cfg.patterns")
+
+    def clean_code_fn(df: pl.LazyFrame) -> pl.LazyFrame:
+        """Clean the specified column using the configured replacement patterns."""
+        # Start with the column
+        cleaned_col = pl.col(column)
+
+        # Apply each replacement pattern in sequence
+        for pattern_cfg in patterns:
+            pattern = pattern_cfg["pattern"]
+            replacement = pattern_cfg["replacement"]
+            cleaned_col = cleaned_col.str.replace_all(pattern, replacement)
+
+        return df.with_columns([cleaned_col.alias(column)])
+
+    return clean_code_fn
+
+
+@hydra.main(
+    version_base=None,
+    config_path=str(PREPROCESS_CONFIG_YAML.parent),
+    config_name=PREPROCESS_CONFIG_YAML.stem,
+)
+def main(cfg: DictConfig):
+    """Run the clean_code stage over MEDS data shards."""
+    map_over(cfg, compute_fn=clean_code_fntr)
+
+
+if __name__ == "__main__":
+    main()

@@ -43,6 +43,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
+MEDS_transform-clean_code = "foresight_r.transforms.clean_code:main"
 MEDS_transform-create_prefix_column = "foresight_r.transforms.create_prefix_column:main"
 
 [tool.black]

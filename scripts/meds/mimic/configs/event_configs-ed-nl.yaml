@@ -6,14 +6,14 @@ subject_id_col: subject_id
 ed/edstays:
   ed_registration:
     code:
-      - "Emergency Department Registration |"
+      - "Emergency Department Registration"
       - "Arrival Transport"
       - col(arrival_transport)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
   ed_out:
     code:
-      - "Emergency Department Discharge |"
+      - "Emergency Department Discharge"
       - "To"
       - col(disposition)
     time: col(outtime)
@@ -22,7 +22,7 @@ ed/edstays:
 ed/triage:
   temperature:
     code:
-      - "Emergency Department Triage |"
+      - "Emergency Department Triage"
       - "Temperature"
       - col(temperature)
       - "°C"
@@ -31,7 +31,7 @@ ed/triage:
       - "%Y-%m-%d %H:%M:%S"
   heart_rate:
     code:
-      - "Emergency Department Triage |"
+      - "Emergency Department Triage"
       - "Heart Rate"
       - col(heartrate)
       - "bpm"
@@ -40,7 +40,7 @@ ed/triage:
       - "%Y-%m-%d %H:%M:%S"
   respiratory_rate:
     code:
-      - "Emergency Department Triage |"
+      - "Emergency Department Triage"
       - "Respiratory Rate"
       - col(resprate)
       - breaths/min
@@ -49,7 +49,7 @@ ed/triage:
       - "%Y-%m-%d %H:%M:%S"
   o2_saturation:
     code:
-      - "Emergency Department Triage |"
+      - "Emergency Department Triage"
       - "O2 Saturation"
       - col(o2sat)
       - "%"
@@ -58,10 +58,10 @@ ed/triage:
       - "%Y-%m-%d %H:%M:%S"
   blood_pressure:
     code:
-      - "Emergency Department Triage |"
+      - "Emergency Department Triage"
       - "Blood Pressure"
       - col(sbp)
-      - "/ "
+      - "/"
       - col(dbp)
       - "mmHg"
     time: col(intime)
@@ -69,7 +69,7 @@ ed/triage:
       - "%Y-%m-%d %H:%M:%S"
   pain:
     code:
-      - "Emergency Department Triage |"
+      - "Emergency Department Triage"
       - "Pain Score"
       - col(pain)
     time: col(intime)
@@ -77,27 +77,27 @@ ed/triage:
       - "%Y-%m-%d %H:%M:%S"
   acuity:
     code:
-      - "Emergency Department Triage |"
-      - "Acuity Score"
+      - "Emergency Department Triage"
+      - "Severity Score"
       - col(acuity)
-      - (1 highest - 5 lowest severity)
+      - (1 high - 5 low)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-  # Not in Ethos-ARES!
-  chiefcomplaint:
-    code:
-      - "Emergency Department Triage |"
-      - "Chief Complaint"
-      - col(chiefcomplaint)
-    time: col(intime)
-    time_format:
-      - "%Y-%m-%d %H:%M:%S"
+  # Not in Ethos-ARES
+  # chiefcomplaint:
+  #   code:
+  #     - "Emergency Department Triage"
+  #     - "Chief Complaint"
+  #     - col(chiefcomplaint)
+  #   time: col(intime)
+  #   time_format:
+  #     - "%Y-%m-%d %H:%M:%S"
 
 ed/diagnosis:
   diagnosis:
     code:
-      - "Emergency Department Diagnosis |"
+      - "Emergency Department Diagnosis"
       - col(icd_title)
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -105,23 +105,23 @@ ed/diagnosis:
 hosp/admissions:
   admission:
     code:
-      - "Hospital Admission |"
+      - "Hospital Admission"
       - "Type"
       - col(admission_type)
-      - ". Source "
+      - ". Source"
       - col(admission_location)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   race:
     code:
-      - "Demographics |"
+      - "Demographics"
       - "Race"
       - col(race)
     time: null
   discharge:
     code:
-      - "Hospital Discharge |"
-      - "Location "
+      - "Hospital Discharge"
+      - "Location"
       - col(discharge_location)
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -130,7 +130,7 @@ hosp/admissions:
 hosp/diagnoses_icd:
   diagnosis:
     code:
-      - "Hospital Diagnosis |"
+      - "Hospital Diagnosis"
       - col(long_title)
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -138,7 +138,7 @@ hosp/diagnoses_icd:
 hosp/drgcodes:
   drg:
     code:
-      - "Diagnosis Related Groups |"
+      - "Diagnosis Related Groups"
       - col(description)
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -146,7 +146,7 @@ hosp/drgcodes:
 hosp/emar:
   medication:
     code:
-      - "Hospital Medication |"
+      - "Hospital Medication"
       - col(medication)
       - col(event_txt)
     time: col(charttime)
@@ -155,7 +155,7 @@ hosp/emar:
 ed/pyxis:
   medication:
     code:
-      - "Emergency Department Medication |"
+      - "Emergency Department Medication"
       - col(name)
       - "Dispensed"
     time: col(charttime)
@@ -164,7 +164,7 @@ ed/pyxis:
 hosp/hcpcsevents:
   hcpcs:
     code:
-      - "Healthcare Common Procedure Coding System |"
+      - "Healthcare Common Procedure Coding System"
       - col(long_description)
     time: col(chartdate)
     time_format: "%Y-%m-%d"
@@ -172,7 +172,7 @@ hosp/hcpcsevents:
 hosp/labevents:
   lab:
     code:
-      - "Laboratory Result |"
+      - "Laboratory Result"
       - col(fluid)
       - col(label)
       - col(value)
@@ -183,7 +183,7 @@ hosp/labevents:
 ed/vitalsign:
   temperature:
     code:
-      - "Emergency Department Vital Signs |"
+      - "Emergency Department Vital Signs"
       - "Temperature"
       - col(temperature)
       - "°C"
@@ -192,7 +192,7 @@ ed/vitalsign:
       - "%Y-%m-%d %H:%M:%S"
   heart_rate:
     code:
-      - "Emergency Department Vital Signs |"
+      - "Emergency Department Vital Signs"
       - "Heart Rate"
       - col(heartrate)
       - "bpm"
@@ -201,7 +201,7 @@ ed/vitalsign:
       - "%Y-%m-%d %H:%M:%S"
   respiratory_rate:
     code:
-      - "Emergency Department Vital Signs |"
+      - "Emergency Department Vital Signs"
       - "Respiratory Rate"
       - col(resprate)
       - breaths/min
@@ -210,7 +210,7 @@ ed/vitalsign:
       - "%Y-%m-%d %H:%M:%S"
   o2_saturation:
     code:
-      - "Emergency Department Vital Signs |"
+      - "Emergency Department Vital Signs"
       - "O2 Saturation"
       - col(o2sat)
       - "%"
@@ -219,10 +219,10 @@ ed/vitalsign:
       - "%Y-%m-%d %H:%M:%S"
   blood_pressure:
     code:
-      - "Emergency Department Vital Signs |"
+      - "Emergency Department Vital Signs"
       - "Blood Pressure"
       - col(sbp)
-      - "/ "
+      - "/"
       - col(dbp)
       - "mmHg"
     time: col(charttime)
@@ -230,26 +230,26 @@ ed/vitalsign:
       - "%Y-%m-%d %H:%M:%S"
   pain:
     code:
-      - "Emergency Department Vital Signs |"
+      - "Emergency Department Vital Signs"
       - "Pain Score"
       - col(pain)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-  # Not in Ethos-ARES!
-  heart_rhythm:
-    code:
-      - "Emergency Department Vital Signs |"
-      - "Heart Rhythm"
-      - col(rhythm)
-    time: col(charttime)
-    time_format:
-      - "%Y-%m-%d %H:%M:%S"
+  # Not in Ethos-ARES
+  # heart_rhythm:
+  #   code:
+  #     - "Emergency Department Vital Signs"
+  #     - "Heart Rhythm"
+  #     - col(rhythm)
+  #   time: col(charttime)
+  #   time_format:
+  #     - "%Y-%m-%d %H:%M:%S"
 
 hosp/omr:
   omr:
     code:
-      - "Observation Medical Record |"
+      - "Observation Medical Record"
       - col(result_name)
       - col(result_value)
     time: col(chartdate)
@@ -258,56 +258,26 @@ hosp/omr:
 hosp/patients:
   gender:
     code:
-      - "Demographics |"
+      - "Demographics"
       - "Gender"
       - col(gender)
     time: null
   dob:
     code:
-      - "BIRTH | Born"
+      - "Birth"
+      - "Born"
     time: col(year_of_birth)
+    # Set as Y-01-01 00:00:00 internally in pre-MEDS
     time_format: "%Y"
   death:
     code:
       # Not using the MEDS official code for death (MEDS_DEATH).
-      - "Death |"
-      - "MEDS_DEATH"
+      - "Death"
+      - "Died"
     time: col(dod)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
       - "%Y-%m-%d"
-
-hosp/procedures_icd:
-  procedure:
-    code:
-      - "Hospital Procedure |"
-      - col(long_title)
-    time: col(chartdate)
-    time_format: "%Y-%m-%d"
-
-hosp/transfers:
-  transfer:
-    code:
-      - "Hospital Transfer |"
-      - col(eventtype)
-      - col(careunit)
-    time: col(intime)
-    time_format: "%Y-%m-%d %H:%M:%S"
-
-icu/icustays:
-  icu_admission:
-    code:
-      - "ICU Admission |"
-      - col(first_careunit)
-    time: col(intime)
-    time_format: "%Y-%m-%d %H:%M:%S"
-  icu_discharge:
-    code:
-      - "ICU Discharge |"
-      - col(last_careunit)
-    time: col(outtime)
-    time_format: "%Y-%m-%d %H:%M:%S"
-
 
 #hosp/pharmacy:
 #  medication_start:
@@ -334,6 +304,39 @@ icu/icustays:
 #      - "%Y-%m-%d %H:%M:%S"
 #      - "%Y-%m-%d"
 
+hosp/procedures_icd:
+  procedure:
+    code:
+      - "Hospital Procedure"
+      - col(long_title)
+    time: col(chartdate)
+    time_format: "%Y-%m-%d"
+
+hosp/transfers:
+  transfer:
+    code:
+      - "Hospital Transfer"
+      - col(eventtype)
+      - col(careunit)
+    time: col(intime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+
+icu/icustays:
+  icu_admission:
+    code:
+      - "ICU Admission"
+      - col(first_careunit)
+    time: col(intime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+  icu_discharge:
+    code:
+      - "ICU Discharge"
+      - col(last_careunit)
+    time: col(outtime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+
+
+
 #icu/chartevents:
 #  event:
 #    code:
@@ -343,8 +346,10 @@ icu/icustays:
 #    time: col(charttime)
 #    time_format: "%Y-%m-%d %H:%M:%S"
 #    numeric_value: valuenum
-#    code: value
-#    #    icu
+#    text_value: value
+#    hadm_id: hadm_id
+#    icustay_id: stay_id
+
 #icu/procedureevents:
 #  start:
 #    code:
@@ -353,14 +358,18 @@ icu/icustays:
 #      - col(itemid)
 #    time: col(starttime)
 #    time_format: "%Y-%m-%d %H:%M:%S"
-#    #    icu#  end:
+#    hadm_id: hadm_id
+#    icustay_id: stay_id
+#  end:
 #    code:
 #      - PROCEDURE
 #      - END
 #      - col(itemid)
 #    time: col(endtime)
 #    time_format: "%Y-%m-%d %H:%M:%S"
-#    #    icu#
+#    hadm_id: hadm_id
+#    icustay_id: stay_id
+#
 #icu/inputevents:
 #  input_start:
 #    code:
@@ -368,21 +377,25 @@ icu/icustays:
 #      - col(itemid)
 #    time: col(starttime)
 #    time_format: "%Y-%m-%d %H:%M:%S"
-#    #    icu#    order_id: orderid
+#    hadm_id: hadm_id
+#    icustay_id: stay_id
+#    order_id: orderid
 #    link_order_id: linkorderid
 #    numeric_value: rate
 #    unit: rateuom
-#    ordercodedescription: ordercodedescription
+#    ordercategorydescription: ordercategorydescription
 #  input_end:
 #    code:
 #      - INFUSION_END
 #      - col(itemid)
 #    time: col(endtime)
 #    time_format: "%Y-%m-%d %H:%M:%S"
-#    #    icu#    order_id: orderid
+#    hadm_id: hadm_id
+#    icustay_id: stay_id
+#    order_id: orderid
 #    link_order_id: linkorderid
 #    numeric_value: amount
-#    ordercodedescription: ordercodedescription
+#    ordercategorydescription: ordercategorydescription
 #    statusdescription: statusdescription
 #    unit: amountuom
 #  subject_weight:
@@ -401,4 +414,6 @@ icu/icustays:
 #      - col(valueuom)
 #    time: col(charttime)
 #    time_format: "%Y-%m-%d %H:%M:%S"
-#    #    icu#    numeric_value: value
+#    hadm_id: hadm_id
+#    icustay_id: stay_id
+#    numeric_value: value

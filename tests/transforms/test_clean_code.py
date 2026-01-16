@@ -217,10 +217,10 @@ def test_clean_code_pattern_order_matters():
 
 
 def test_clean_code_no_patterns_raises_error():
-    """Test that missing patterns raises ValueError."""
+    """Test that missing patterns and strip_whitespace raises ValueError."""
     cfg = DictConfig({"column": "code", "patterns": []})
 
-    with pytest.raises(ValueError, match="At least one pattern must be specified"):
+    with pytest.raises(ValueError, match="At least one pattern or strip_whitespace"):
         clean_code_fntr(cfg)
 
 
@@ -265,3 +265,81 @@ def test_clean_code_regex_patterns():
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["test#", "value#xyz", "abc#def"]
+
+
+def test_clean_code_strip_whitespace():
+    """Test that strip_whitespace removes leading/trailing whitespace."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2, 3, 4],
+            "time": [1, 2, 3, 4],
+            "code": [" leading", "trailing ", " both ", "none"],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [],
+            "strip_whitespace": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"].to_list() == ["leading", "trailing", "both", "none"]
+
+
+def test_clean_code_strip_whitespace_with_patterns():
+    """Test strip_whitespace combined with patterns."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2],
+            "time": [1, 2],
+            "code": ["Hospital Transfer// Emergency Department", " LAB//glucose "],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [
+                {"pattern": "//", "replacement": " "},
+                {"pattern": r"(\s){2,}", "replacement": " "},
+            ],
+            "strip_whitespace": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"].to_list() == [
+        "Hospital Transfer Emergency Department",
+        "LAB glucose",
+    ]
+
+
+def test_clean_code_strip_whitespace_false_preserves_spaces():
+    """Test that strip_whitespace=False preserves leading/trailing whitespace."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1],
+            "time": [1],
+            "code": [" spaced "],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [{"pattern": "x", "replacement": "y"}],  # Dummy pattern
+            "strip_whitespace": False,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"][0] == " spaced "

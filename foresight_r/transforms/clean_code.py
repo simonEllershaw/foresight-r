@@ -20,6 +20,7 @@ def clean_code_fntr(
         stage_cfg: Configuration containing:
             - column: Column name to clean (default: "code")
             - patterns: List of replacement patterns, each with 'pattern' and 'replacement' keys
+            - strip_whitespace: Whether to strip leading/trailing whitespace (default: False)
 
     Returns:
         Function that transforms a LazyFrame by cleaning the specified column
@@ -54,9 +55,10 @@ def clean_code_fntr(
     """
     column = stage_cfg.get("column", "code")
     patterns = stage_cfg.get("patterns", [])
+    strip_whitespace = stage_cfg.get("strip_whitespace", False)
 
-    if not patterns:
-        raise ValueError("At least one pattern must be specified in stage_cfg.patterns")
+    if not patterns and not strip_whitespace:
+        raise ValueError("At least one pattern or strip_whitespace must be specified")
 
     def clean_code_fn(df: pl.LazyFrame) -> pl.LazyFrame:
         """Clean the specified column using the configured replacement patterns."""
@@ -68,6 +70,10 @@ def clean_code_fntr(
             pattern = pattern_cfg["pattern"]
             replacement = pattern_cfg["replacement"]
             cleaned_col = cleaned_col.str.replace_all(pattern, replacement)
+
+        # Strip leading/trailing whitespace if enabled
+        if strip_whitespace:
+            cleaned_col = cleaned_col.str.strip_chars()
 
         return df.with_columns([cleaned_col.alias(column)])
 

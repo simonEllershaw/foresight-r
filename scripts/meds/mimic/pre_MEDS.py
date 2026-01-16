@@ -76,7 +76,8 @@ def process_admissions_df(admissions_df: pl.LazyFrame) -> pl.LazyFrame:
 def process_drgcodes_df(
     drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Add discharge time and convert description to title case."""
+    """Filter to HCFA DRG codes, add discharge time, and convert description to title case."""
+    drgcodes_df = drgcodes_df.filter(pl.col("drg_type") == "HCFA")
     drgcodes_df = add_dischtime(drgcodes_df, admissions_df)
     return drgcodes_df.with_columns(pl.col("description").str.to_titlecase())
 

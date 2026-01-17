@@ -121,9 +121,8 @@ hosp/admissions:
   admission:
     code:
       - "Hospital Admission"
-      - "Type"
       - col(admission_type)
-      - ". Source"
+      - "from"
       - col(admission_location)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"

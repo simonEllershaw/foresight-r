@@ -220,7 +220,9 @@ def test_clean_code_no_patterns_raises_error():
     """Test that missing patterns and strip_whitespace raises ValueError."""
     cfg = DictConfig({"column": "code", "patterns": []})
 
-    with pytest.raises(ValueError, match="At least one pattern or strip_whitespace"):
+    with pytest.raises(
+        ValueError, match="At least one pattern, strip_whitespace, or to_titlecase"
+    ):
         clean_code_fntr(cfg)
 
 
@@ -343,3 +345,84 @@ def test_clean_code_strip_whitespace_false_preserves_spaces():
     result = fn(test_df).collect()
 
     assert result["code"][0] == " spaced "
+
+
+def test_clean_code_to_titlecase():
+    """Test that to_titlecase converts strings to title case."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2, 3, 4],
+            "time": [1, 2, 3, 4],
+            "code": ["UPPER CASE", "lower case", "mixed CASE string", "Already Title"],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [],
+            "to_titlecase": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"].to_list() == [
+        "Upper Case",
+        "Lower Case",
+        "Mixed Case String",
+        "Already Title",
+    ]
+
+
+def test_clean_code_to_titlecase_with_patterns():
+    """Test to_titlecase combined with patterns."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2],
+            "time": [1, 2],
+            "code": ["LAB//GLUCOSE", "ADMISSION//EMERGENCY ROOM"],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [
+                {"pattern": "//", "replacement": " "},
+            ],
+            "to_titlecase": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"].to_list() == ["Lab Glucose", "Admission Emergency Room"]
+
+
+def test_clean_code_to_titlecase_with_null():
+    """Test that to_titlecase handles null values."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2, 3],
+            "time": [1, 2, 3],
+            "code": ["UPPER", None, "lower"],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [],
+            "to_titlecase": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"][0] == "Upper"
+    assert result["code"][1] is None
+    assert result["code"][2] == "Lower"

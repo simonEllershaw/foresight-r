@@ -21,6 +21,7 @@ def clean_code_fntr(
             - column: Column name to clean (default: "code")
             - patterns: List of replacement patterns, each with 'pattern' and 'replacement' keys
             - strip_whitespace: Whether to strip leading/trailing whitespace (default: False)
+            - to_titlecase: Whether to convert to title case (default: False)
 
     Returns:
         Function that transforms a LazyFrame by cleaning the specified column
@@ -56,9 +57,12 @@ def clean_code_fntr(
     column = stage_cfg.get("column", "code")
     patterns = stage_cfg.get("patterns", [])
     strip_whitespace = stage_cfg.get("strip_whitespace", False)
+    to_titlecase = stage_cfg.get("to_titlecase", False)
 
-    if not patterns and not strip_whitespace:
-        raise ValueError("At least one pattern or strip_whitespace must be specified")
+    if not patterns and not strip_whitespace and not to_titlecase:
+        raise ValueError(
+            "At least one pattern, strip_whitespace, or to_titlecase must be specified"
+        )
 
     def clean_code_fn(df: pl.LazyFrame) -> pl.LazyFrame:
         """Clean the specified column using the configured replacement patterns."""
@@ -74,6 +78,10 @@ def clean_code_fntr(
         # Strip leading/trailing whitespace if enabled
         if strip_whitespace:
             cleaned_col = cleaned_col.str.strip_chars()
+
+        # Convert to title case if enabled
+        if to_titlecase:
+            cleaned_col = cleaned_col.str.to_titlecase()
 
         return df.with_columns([cleaned_col.alias(column)])
 

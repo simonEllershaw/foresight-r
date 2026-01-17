@@ -55,31 +55,12 @@ def process_lab_events_df(
     return result
 
 
-def process_ed_stays_df(ed_stays_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Convert arrival_transport and disposition columns to title case."""
-    return ed_stays_df.with_columns(
-        pl.col("arrival_transport").str.to_titlecase(),
-        pl.col("disposition").str.to_titlecase(),
-    )
-
-
-def process_admissions_df(admissions_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Convert admission fields to title case."""
-    return admissions_df.with_columns(
-        pl.col("admission_type").str.to_titlecase(),
-        pl.col("admission_location").str.to_titlecase(),
-        pl.col("discharge_location").str.to_titlecase(),
-        pl.col("race").str.to_titlecase(),
-    )
-
-
 def process_drgcodes_df(
     drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Filter to HCFA DRG codes, add discharge time, and convert description to title case."""
+    """Filter to HCFA DRG codes and add discharge time."""
     drgcodes_df = drgcodes_df.filter(pl.col("drg_type") == "HCFA")
-    drgcodes_df = add_dischtime(drgcodes_df, admissions_df)
-    return drgcodes_df.with_columns(pl.col("description").str.to_titlecase())
+    return add_dischtime(drgcodes_df, admissions_df)
 
 
 def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
@@ -123,9 +104,8 @@ def process_icd_df(
 def process_ed_diagnosis_df(
     ed_diagnosis_df: pl.LazyFrame, edstays_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Add ED departure time and convert diagnosis title to title case."""
-    ed_diagnosis_df = add_outtime(ed_diagnosis_df, edstays_df)
-    return ed_diagnosis_df.with_columns(pl.col("icd_title").str.to_titlecase())
+    """Add ED departure time."""
+    return add_outtime(ed_diagnosis_df, edstays_df)
 
 
 def _round_to_3sf(expr: pl.Expr) -> pl.Expr:
@@ -230,7 +210,6 @@ FUNCTIONS = {
         process_patients_df,
         [("hosp/admissions", ["subject_id", "deathtime"])],
     ),
-    "hosp/admissions": (process_admissions_df, None),
     "hosp/transfers": (process_hosp_transfers_df, None),
     "hosp/labevents": (
         process_lab_events_df,
@@ -241,7 +220,6 @@ FUNCTIONS = {
         [("hosp/d_hcpcs", ["code", "long_description", "short_description"])],
     ),
     "hosp/omr": (convert_date_to_end_of_day_timestamp, None),
-    "ed/edstays": (process_ed_stays_df, None),
     "ed/diagnosis": (process_ed_diagnosis_df, [("ed/edstays", ["stay_id", "outtime"])]),
     "ed/triage": (
         process_ed_vitals_with_time_df,

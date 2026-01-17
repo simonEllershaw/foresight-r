@@ -44,8 +44,8 @@ stage_configs:
     patterns:
       - pattern: "//"
         replacement: " "
-      - pattern: "___|UNK"
-        replacement: "?"
+      # - pattern: "___|UNK"
+      #   replacement: "?"
       - pattern: '(\s){2,}'
         replacement: " "
   calculate_age:
@@ -56,6 +56,12 @@ stage_configs:
     time_format: "%H:%M"
     replace_end_of_day: true
     end_of_day_fill_value: "Time Unspecified"
+  filter_null_numeric_value:
+    _script: custom-meds-transform-filter-null-numeric-value
+    prefixes:
+      - "Emergency Department Vital Signs"
+      - "Emergency Department Triage"
+      - "Laboratory Result"
 
 stages:
   - shard_events
@@ -64,6 +70,7 @@ stages:
   - merge_to_MEDS_cohort
   #### Custom transforms ####
   - create_prefix_column
+  - filter_null_numeric_value
   - clean_code
   - calculate_age
   - add_time_column

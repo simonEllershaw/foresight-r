@@ -92,7 +92,7 @@ ed/triage:
   acuity:
     code:
       - "Emergency Department Triage"
-      - "Acuity Score"
+      - "Severity Score"
       - col(acuity)
       - (1 high - 5 low)
     numeric_value: col(acuity)

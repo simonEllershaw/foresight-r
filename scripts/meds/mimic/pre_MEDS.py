@@ -149,6 +149,22 @@ def process_hcpcs_events_df(
     return convert_date_to_end_of_day_timestamp(hcpcs_events_df)
 
 
+def join_hosp_admissions_with_gender(
+    admissions_df: pl.LazyFrame, patients_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Joins the gender information from the patients table to the admissions table."""
+    return admissions_df.join(
+        patients_df.select(
+            "subject_id",
+            pl.col("gender")
+            .replace_strict({"F": "Female", "M": "Male"}, default=pl.col("gender"))
+            .alias("gender"),
+        ),
+        on="subject_id",
+        how="left",
+    )
+
+
 def process_patients_df(
     patients_df: pl.LazyFrame, death_times_df: pl.LazyFrame
 ) -> pl.LazyFrame:
@@ -228,6 +244,10 @@ FUNCTIONS = {
     "ed/vitalsign": (
         process_ed_vitals_with_time_df,
         [("ed/edstays", ["stay_id", "intime"])],
+    ),
+    "hosp/admissions": (
+        join_hosp_admissions_with_gender,
+        [("hosp/patients", ["subject_id", "gender"])],
     ),
 }
 

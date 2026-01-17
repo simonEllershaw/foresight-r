@@ -128,6 +128,7 @@ hosp/admissions:
   insurance:
     code:
       - "Hospital Admission"
+      - Insurance
       - col(insurance)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -151,6 +152,13 @@ hosp/admissions:
       - "Hospital Admission"
       - "Race"
       - col(race)
+    time: col(admittime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+  gender:
+    code:
+      - Hospital Admission
+      - Gender
+      - col(gender)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   discharge:
@@ -316,10 +324,12 @@ hosp/omr:
 hosp/patients:
   gender:
     code:
-      - "Demographics"
+      - "Birth"
       - "Gender"
       - col(gender)
-    time: null
+    time: col(year_of_birth)
+    # Set as Y-01-01 00:00:00 internally in pre-MEDS
+    time_format: "%Y"
   dob:
     code:
       - "Birth"

@@ -38,7 +38,7 @@ add_intime = partial(join_time_column, on="stay_id", time_column_name="intime")
 def convert_date_to_end_of_day_timestamp(
     df: pl.LazyFrame, date_column: str = "chartdate"
 ) -> pl.LazyFrame:
-    """Convert date-only columns to timestamps at 23:59:59 (end of day)."""
+    """Converts a date-only column to a timestamp set at the end of the day (23:59:59.999999)."""
     return df.with_columns(
         pl.col(date_column).str.to_date().dt.combine(END_OF_DAY).alias(date_column)
     )
@@ -47,9 +47,13 @@ def convert_date_to_end_of_day_timestamp(
 def process_lab_events_df(
     lab_events_df: pl.LazyFrame, d_labitems_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Enrich lab events with item labels and fluid types from d_labitems reference."""
+    """Filters lab events to rows with non-null numeric values, joins with `d_labitems` to add item labels and fluid types, and fills null `valueuom` with empty strings."""
+
+    lab_events_df = lab_events_df.filter(pl.col("valuenumeric").is_not_null())
+
     d_labitems_df = d_labitems_df.select("itemid", "fluid", "label")
     result = lab_events_df.join(d_labitems_df, on="itemid", how="left")
+
     # Convert null values in valueuom column to empty strings
     result = result.with_columns(pl.col("valueuom").fill_null(""))
     return result
@@ -58,13 +62,13 @@ def process_lab_events_df(
 def process_drgcodes_df(
     drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Filter to HCFA DRG codes and add discharge time."""
+    """Filters for 'HCFA' DRG codes (as in ETHOS-ARES) and adds the discharge time from admissions."""
     drgcodes_df = drgcodes_df.filter(pl.col("drg_type") == "HCFA")
     return add_dischtime(drgcodes_df, admissions_df)
 
 
 def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Map eventtype values to descriptive text."""
+    """Maps raw `eventtype` values ('discharge', 'admit', 'transfer') to descriptive text ('Discharge from', 'Admit to', 'Transfer to')."""
     return hosp_transfers_df.with_columns(
         pl.col("eventtype").replace_strict(
             {
@@ -83,7 +87,7 @@ def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
 def process_icd_df(
     icd_df: pl.LazyFrame, admissions_df: pl.LazyFrame, d_icd_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Enrich ICD codes with discharge times, descriptive titles, and convert chartdate to timestamp."""
+    """Adds discharge time from admissions, joins with `d_icd` for descriptive titles, ensures codes are strings, and converts `chartdate` to end-of-day timestamps."""
     icd_df = add_dischtime(icd_df, admissions_df)
     # Cast to string to match d_icd schema
     icd_df = icd_df.with_columns(
@@ -104,7 +108,7 @@ def process_icd_df(
 def process_ed_diagnosis_df(
     ed_diagnosis_df: pl.LazyFrame, edstays_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Add ED departure time."""
+    """Adds the ED departure time (`outtime`) from `edstays`."""
     return add_outtime(ed_diagnosis_df, edstays_df)
 
 
@@ -130,7 +134,7 @@ def _convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
 def process_ed_vitals_with_time_df(
     ed_vitals_with_time_df: pl.LazyFrame, edstays_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Add ED registration time and convert Fahrenheit temperatures to Celsius (for triage and vitalsign tables)."""
+    """Adds ED registration time (`intime`) and converts temperatures > 45 (assumed Fahrenheit) to Celsius."""
     ed_vitals_with_time_df = add_intime(ed_vitals_with_time_df, edstays_df)
     return _convert_fahrenheit_to_celsius(ed_vitals_with_time_df)
 
@@ -138,7 +142,7 @@ def process_ed_vitals_with_time_df(
 def process_hcpcs_events_df(
     hcpcs_events_df: pl.LazyFrame, d_hcpcs_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Enrich HCPCS events with procedure descriptions (long or short) and convert chartdate to timestamp."""
+    """Joins with `d_hcpcs` to add procedure descriptions (preferring long, falling back to short) and converts `chartdate` to end-of-day timestamps."""
     d_hcpcs_df = d_hcpcs_df.select(
         "code",
         pl.coalesce("long_description", "short_description").alias("long_description"),
@@ -152,7 +156,7 @@ def process_hcpcs_events_df(
 def join_hosp_admissions_with_gender(
     admissions_df: pl.LazyFrame, patients_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Joins the gender information from the patients table to the admissions table."""
+    """Joins the `gender` column from the patients table to the admissions table, standardizing 'F'/'M' to 'Female'/'Male'."""
     return admissions_df.join(
         patients_df.select(
             "subject_id",
@@ -168,7 +172,7 @@ def join_hosp_admissions_with_gender(
 def process_patients_df(
     patients_df: pl.LazyFrame, death_times_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Process patient demographics by merging death times, calculating birth years, and standardizing gender values."""
+    """Aggregates death times, calculates birth years, standardizes gender, and consolidates death timestamps (preferring admission `deathtime` over `dod`)."""
     # Parse datetime once before aggregation for better performance
     death_times_df = (
         death_times_df.with_columns(pl.col("deathtime").str.strptime(pl.Datetime))

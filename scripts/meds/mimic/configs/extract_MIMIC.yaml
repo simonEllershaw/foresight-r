@@ -36,6 +36,12 @@ stage_configs:
       held_out: null
   create_prefix_column:
     _script: custom-meds-transform-create-prefix-column
+  filter_null_numeric_value:
+    _script: custom-meds-transform-filter-null-numeric-value
+    prefixes:
+      - "Emergency Department Vital Signs"
+      - "Emergency Department Triage"
+      - "Laboratory Result"
   clean_code:
     _script: custom-meds-transform-clean-code
     column: code
@@ -56,12 +62,6 @@ stage_configs:
     time_format: "%H:%M"
     replace_end_of_day: true
     end_of_day_fill_value: "Time Unspecified"
-  filter_null_numeric_value:
-    _script: custom-meds-transform-filter-null-numeric-value
-    prefixes:
-      - "Emergency Department Vital Signs"
-      - "Emergency Department Triage"
-      - "Laboratory Result"
 
 stages:
   - shard_events

@@ -41,7 +41,6 @@ stage_configs:
     prefixes:
       - "Emergency Department Vital Signs"
       - "Emergency Department Triage"
-      - "Laboratory Result"
   clean_code:
     _script: custom-meds-transform-clean-code
     column: code

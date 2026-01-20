@@ -49,7 +49,7 @@ def process_lab_events_df(
 ) -> pl.LazyFrame:
     """Filters lab events to rows with non-null numeric values, joins with `d_labitems` to add item labels and fluid types, and fills null `valueuom` with empty strings."""
 
-    lab_events_df = lab_events_df.filter(pl.col("valuenumeric").is_not_null())
+    lab_events_df = lab_events_df.filter(pl.col("valuenum").is_not_null())
 
     d_labitems_df = d_labitems_df.select("itemid", "fluid", "label")
     result = lab_events_df.join(d_labitems_df, on="itemid", how="left")

@@ -47,7 +47,7 @@ custom-meds-transform-clean-code = "foresight_r.transforms.clean_code:main"
 custom-meds-transform-create-prefix-column = "foresight_r.transforms.create_prefix_column:main"
 custom-meds-transform-calculate-age = "foresight_r.transforms.calculate_age:main"
 custom-meds-transform-add-time-column = "foresight_r.transforms.add_time_column:main"
-custom-meds-transform-filter-null-numeric-value = "foresight_r.transforms.filter_null_numeric_value:main"
+custom-meds-transform-filter-null-text-value = "foresight_r.transforms.filter_null_text_value:main"
 
 [tool.black]
 line-length = 88

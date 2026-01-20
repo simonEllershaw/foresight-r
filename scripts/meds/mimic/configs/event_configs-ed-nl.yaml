@@ -25,7 +25,7 @@ ed/triage:
       - "Temperature"
       - col(temperature)
       - "°C"
-    numeric_value: col(temperature)
+    text_value: col(temperature)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -35,7 +35,7 @@ ed/triage:
       - "Heart Rate"
       - col(heartrate)
       - "bpm"
-    numeric_value: col(heartrate)
+    text_value: col(heartrate)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -45,7 +45,7 @@ ed/triage:
       - "Respiratory Rate"
       - col(resprate)
       - breaths/min
-    numeric_value: col(resprate)
+    text_value: col(resprate)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -55,7 +55,7 @@ ed/triage:
       - "O2 Saturation"
       - col(o2sat)
       - "%"
-    numeric_value: col(o2sat)
+    text_value: col(o2sat)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -65,7 +65,7 @@ ed/triage:
       - "Systolic Blood Pressure"
       - col(sbp)- -
       - "mmHg"
-    numeric_value: col(sbp)
+    text_value: col(sbp)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -75,7 +75,7 @@ ed/triage:
       - "Diastolic Blood Pressure"
       - col(dbp)
       - "mmHg"
-    numeric_value: col(dbp)
+    text_value: col(dbp)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -84,7 +84,7 @@ ed/triage:
       - "Emergency Department Triage"
       - "Pain Score"
       - col(pain)
-    numeric_value: col(pain)
+    text_value: col(pain)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -94,7 +94,7 @@ ed/triage:
       - "Severity Score"
       - col(acuity)
       - (1 high - 5 low)
-    numeric_value: col(acuity)
+    text_value: col(acuity)
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -228,7 +228,7 @@ hosp/labevents:
       - col(valueuom)
     # ETHOS-ARES only uses valuenum column downstream
     # This drops (free text) information from value and comments columns
-    numeric_value: col(valuenum)
+    text_value: col(valuenum)
     time: col(charttime)
     time_format: "%Y-%m-%d %H:%M:%S"
 
@@ -239,7 +239,7 @@ ed/vitalsign:
       - "Temperature"
       - col(temperature)
       - "°C"
-    numeric_value: col(temperature)
+    text_value: col(temperature)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -249,7 +249,7 @@ ed/vitalsign:
       - "Heart Rate"
       - col(heartrate)
       - "bpm"
-    numeric_value: col(heartrate)
+    text_value: col(heartrate)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -259,7 +259,7 @@ ed/vitalsign:
       - "Respiratory Rate"
       - col(resprate)
       - breaths/min
-    numeric_value: col(resprate)
+    text_value: col(resprate)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -269,7 +269,7 @@ ed/vitalsign:
       - "O2 Saturation"
       - col(o2sat)
       - "%"
-    numeric_value: col(o2sat)
+    text_value: col(o2sat)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -279,7 +279,7 @@ ed/vitalsign:
       - "Diastolic Blood Pressure"
       - col(dbp)
       - "mmHg"
-    numeric_value: col(dbp)
+    text_value: col(dbp)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -289,7 +289,7 @@ ed/vitalsign:
       - "Systolic Blood Pressure"
       - col(sbp)
       - "mmHg"
-    numeric_value: col(sbp)
+    text_value: col(sbp)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
@@ -298,7 +298,7 @@ ed/vitalsign:
       - "Emergency Department Vital Signs"
       - "Pain Score"
       - col(pain)
-    numeric_value: col(pain)
+    text_value: col(pain)
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"

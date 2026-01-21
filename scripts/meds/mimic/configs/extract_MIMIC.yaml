@@ -36,8 +36,8 @@ stage_configs:
       held_out: null
   create_prefix_column:
     _script: custom-meds-transform-create-prefix-column
-  filter_null_text_value:
-    _script: custom-meds-transform-filter-null-text-value
+  filter_null_values:
+    _script: custom-meds-transform-filter-null-values
     prefixes:
       - "Emergency Department Vital Signs"
       - "Emergency Department Triage"
@@ -70,7 +70,7 @@ stages:
   - merge_to_MEDS_cohort
   #### Custom transforms ####
   - create_prefix_column
-  - filter_null_text_value
+  - filter_null_values
   - clean_code
   - calculate_age
   - add_time_column

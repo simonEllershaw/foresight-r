@@ -19,7 +19,7 @@ MIMICIV_MEDS_DIR     := data/mimic-iv-meds
 MIMIC_MEDS_SCRIPT_DIR := scripts/meds/mimic
 N_WORKERS             := 1
 
-.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file
+.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file test
 
 # ------------------------------------------------------------------------------
 # Helper Functions
@@ -88,3 +88,6 @@ run-meds-extraction:
 
 sample_markdown_file:
 	uv run python scripts/sandbox/convert_patient_to_md.py
+
+test:
+	uv run pytest

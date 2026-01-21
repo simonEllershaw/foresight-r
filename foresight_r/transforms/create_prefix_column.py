@@ -53,7 +53,7 @@ def create_prefix_column_fntr(
         return df.with_columns(
             [
                 # First element becomes prefix
-                code_parts.list.first().alias("prefix"),
+                code_parts.list.first().alias("category"),
                 # Join remaining elements back with "//" as the new code
                 code_parts.list.slice(1).list.join("//").alias("code"),
             ]

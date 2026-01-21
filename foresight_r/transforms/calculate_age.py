@@ -59,7 +59,7 @@ def calculate_age_fntr(
         │ 2          ┆ Diagnosis ┆ 20       ┆107      │
         └────────────┴───────────┴──────────┴─────────┘
     """
-    birth_code = stage_cfg.get("birth_code", "MEDS_BIRTH")
+    birth_code = stage_cfg.get("birth_code", "Born")
 
     def calculate_age_fn(df: pl.LazyFrame) -> pl.LazyFrame:
         """Calculate age using calendar years (age_year) and days since last birthday (age_day)."""

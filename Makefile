@@ -45,6 +45,7 @@ download-mimic-demo:
 		rm -rf physionet.org || true
 	@echo "Downloaded MIMIC-IV to $(MIMICIV_RAW_DIR)"
 
+
 download-mimic-ed-demo:
 	$(call check_credentials)
 	@mkdir -p $(MIMICIV_ED_RAW_DIR)
@@ -60,6 +61,8 @@ download-demo-data: download-mimic-demo download-mimic-ed-demo
 	@mv $(MIMICIV_ED_RAW_DIR)/ed $(MIMICIV_RAW_DIR)/
 	@rm -rf $(MIMICIV_ED_RAW_DIR)
 	@echo "Complete: MIMIC-IV-ED moved to $(MIMICIV_RAW_DIR)/ed"
+	gunzip -r -v $(MIMICIV_RAW_DIR)
+	@echo "Unzipped MIMIC-IV to $(MIMICIV_RAW_DIR)"
 
 # ------------------------------------------------------------------------------
 # MEDS Processing Targets

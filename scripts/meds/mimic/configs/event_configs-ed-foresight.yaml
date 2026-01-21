@@ -111,10 +111,46 @@ hosp/admissions:
       - col(admission_location)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    insurance: insurance
-    # Language not used in Ethos-ARES model
-    marital_status: marital_status
-    race: race
+  # Multiple insurance, marital status, and race are recorded
+  # Using heuristics such as most frequent is messy when truncating at "differing prediction points"
+  # So we just include them as recorded both in terms of time and value
+  insurance:
+    code:
+      - "Hospital Admission"
+      - "Insurance"
+      - col(insurance)
+    time: col(admittime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+  marital_status:
+    code:
+      - "Hospital Admission"
+      - "Marital Status"
+      - col(marital_status)
+    time: col(admittime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+  race:
+    code:
+      - "Hospital Admission"
+      - "Race"
+      - col(race)
+    time: col(admittime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+  # Repeat gender as likely to be truncated from birth event
+  gender:
+    code:
+      - "Hospital Admission"
+      - "Gender"
+      - col(gender)
+    time: col(admittime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+  # Language not used in Ethos-ARES model
+  # language:
+  #   code:
+  #     - "Hospital Admission"
+  #     - "Language"
+  #     - col(language)
+  #   time: col(admittime)
+  #   time_format: "%Y-%m-%d %H:%M:%S"
   discharge:
     code:
       - "Hospital Discharge"
@@ -276,9 +312,14 @@ hosp/patients:
       - "Birth"
       - "Born"
     time: col(year_of_birth)
-    # Set genders as a column so can be dealt with like other static variables set in hosp/admissions
-    gender: col(gender)
     # Set as Y-01-01 00:00:00 internally in pre-MEDS
+    time_format: "%Y"
+  gender:
+    code:
+      - "Birth"
+      - "Gender"
+      - col(gender)
+    time: col(year_of_birth)
     time_format: "%Y"
   death:
     code:

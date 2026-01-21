@@ -63,6 +63,18 @@ def process_lab_events_df(
     return result
 
 
+def process_admissions_df(
+    admissions_df: pl.LazyFrame, patients_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Joins admissions with `patients` to add the standardized `gender` column."""
+    patients_df = patients_df.select("subject_id", "gender").with_columns(
+        pl.col("gender").replace_strict(
+            {"F": "Female", "M": "Male"}, default=pl.col("gender")
+        )
+    )
+    return admissions_df.join(patients_df, on="subject_id", how="left")
+
+
 def process_drgcodes_df(
     drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
@@ -222,6 +234,10 @@ FUNCTIONS = {
     "hosp/labevents": (
         process_lab_events_df,
         [("hosp/d_labitems", ["itemid", "label", "fluid"])],
+    ),
+    "hosp/admissions": (
+        process_admissions_df,
+        [("hosp/patients", ["subject_id", "gender"])],
     ),
     "hosp/hcpcsevents": (
         process_hcpcs_events_df,

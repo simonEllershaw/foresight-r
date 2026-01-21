@@ -32,10 +32,10 @@ def create_prefix_column_fntr(
         ... }).lazy()
         >>> fn = create_prefix_column_fntr(DictConfig({}))
         >>> result = fn(df).collect()
-        >>> result.select("code", "category")
+        >>> result.select("code", "prefix")
         shape: (3, 2)
         ┌───────────┬────────────┐
-        │ code      ┆ category   │
+        │ code      ┆ prefix     │
         │ ---       ┆ ---        │
         │ str       ┆ str        │
         ╞═══════════╪════════════╡
@@ -53,7 +53,7 @@ def create_prefix_column_fntr(
         return df.with_columns(
             [
                 # First element becomes prefix
-                code_parts.list.first().alias("category"),
+                code_parts.list.first().alias("prefix"),
                 # Join remaining elements back with "//" as the new code
                 code_parts.list.slice(1).list.join("//").alias("code"),
             ]

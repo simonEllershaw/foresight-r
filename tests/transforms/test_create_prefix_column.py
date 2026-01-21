@@ -9,7 +9,7 @@ from foresight_r.transforms.create_prefix_column import create_prefix_column_fnt
 
 @pytest.fixture
 def sample_data_with_prefixes():
-    """Sample data with codes that have category prefixes."""
+    """Sample data with codes that have prefixes."""
     return pl.DataFrame(
         {
             "subject_id": [1, 1, 2, 3],
@@ -26,18 +26,18 @@ def sample_data_with_prefixes():
 
 @pytest.fixture
 def sample_data_without_prefixes():
-    """Sample data with codes that have no category prefixes."""
+    """Sample data with codes that have no prefixes."""
     return pl.DataFrame(
         {"subject_id": [1, 2], "time": [1, 2], "code": ["glucose", "aspirin"]}
     ).lazy()
 
 
 def test_create_prefix_column_with_prefixes(sample_data_with_prefixes):
-    """Test that codes with '//' are split correctly into category and code."""
+    """Test that codes with '//' are split correctly into prefix and code."""
     fn = create_prefix_column_fntr(DictConfig({}))
     result = fn(sample_data_with_prefixes).collect()
 
-    assert result["category"].to_list() == [
+    assert result["prefix"].to_list() == [
         "LAB",
         "ADMISSION",
         "MEDICATION",
@@ -54,12 +54,12 @@ def test_create_prefix_column_with_prefixes(sample_data_with_prefixes):
 def test_create_prefix_column_without_prefixes(sample_data_without_prefixes):
     """Test handling of codes without '//' delimiter.
 
-    Current behavior: entire code becomes category, code becomes empty string.
+    Current behavior: entire code becomes prefix, code becomes empty string.
     """
     fn = create_prefix_column_fntr(DictConfig({}))
     result = fn(sample_data_without_prefixes).collect()
 
-    assert result["category"].to_list() == ["glucose", "aspirin"]
+    assert result["prefix"].to_list() == ["glucose", "aspirin"]
     assert result["code"].to_list() == ["", ""]
 
 
@@ -94,7 +94,7 @@ def test_create_prefix_column_multiple_delimiters():
     fn = create_prefix_column_fntr(DictConfig({}))
     result = fn(test_df).collect()
 
-    assert result["category"][0] == "LAB"
+    assert result["prefix"][0] == "LAB"
     assert result["code"][0] == "glucose//fasting//venous"
 
 
@@ -112,5 +112,5 @@ def test_create_prefix_column_empty_dataframe():
     result = fn(test_df).collect()
 
     assert len(result) == 0
-    assert "category" in result.columns
+    assert "prefix" in result.columns
     assert "code" in result.columns

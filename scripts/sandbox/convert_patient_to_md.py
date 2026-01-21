@@ -19,7 +19,7 @@ def format_age(age_days: pl.Expr) -> pl.Expr:
 def patient_to_text(patient_df: pl.DataFrame) -> str:
     """Convert a patient's MEDS data to free text EHR format.
 
-    Expects columns: time_str, time_unspecified, category, text, age_header_text.
+    Expects columns: time_str, time_unspecified, prefix, text, age_header_text.
     Data should be sorted by time.
     """
     age_changed = changed("age_year") | changed("age_day")

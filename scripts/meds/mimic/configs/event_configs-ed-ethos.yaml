@@ -124,6 +124,7 @@ hosp/drgcodes:
     hadm_id: hadm_id
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
+    text_value: col(drg_type)
     drg_severity: drg_severity
     drg_mortality: drg_mortality
 

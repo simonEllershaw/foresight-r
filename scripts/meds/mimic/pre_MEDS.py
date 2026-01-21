@@ -18,21 +18,28 @@ from omegaconf import DictConfig
 END_OF_DAY = pl.time(23, 59, 59, 999999)
 
 
-def join_time_column(
-    target_df: pl.LazyFrame,
+def add_time_by_id(
+    df: pl.LazyFrame,
     time_source_df: pl.LazyFrame,
     on: str,
     time_column_name: str,
 ) -> pl.LazyFrame:
-    """Join time column from source dataframe to target dataframe by specified key."""
+    """Joins the two dataframes by ``on`` and adds the time to the original dataframe."""
+
     time_source_df = time_source_df.select(on, time_column_name)
-    return target_df.join(time_source_df, on=on, how="left")
+    return df.join(time_source_df, on=on, how="left")
 
 
 # Helper partials for common time joins
-add_dischtime = partial(join_time_column, on="hadm_id", time_column_name="dischtime")
-add_outtime = partial(join_time_column, on="stay_id", time_column_name="outtime")
-add_intime = partial(join_time_column, on="stay_id", time_column_name="intime")
+add_discharge_time_by_hadm_id = partial(
+    add_time_by_id, on="hadm_id", time_column_name="dischtime"
+)
+add_out_time_by_stay_id = partial(
+    add_time_by_id, on="stay_id", time_column_name="outtime"
+)
+add_reg_time_by_stay_id = partial(
+    add_time_by_id, on="stay_id", time_column_name="intime"
+)
 
 
 def convert_date_to_end_of_day_timestamp(
@@ -61,7 +68,7 @@ def process_drgcodes_df(
 ) -> pl.LazyFrame:
     """Filters for 'HCFA' DRG codes (as in ETHOS-ARES) and adds the discharge time from admissions."""
     drgcodes_df = drgcodes_df.filter(pl.col("drg_type") == "HCFA")
-    return add_dischtime(drgcodes_df, admissions_df)
+    return add_discharge_time_by_hadm_id(drgcodes_df, admissions_df)
 
 
 def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
@@ -85,7 +92,7 @@ def process_icd_df(
     icd_df: pl.LazyFrame, admissions_df: pl.LazyFrame, d_icd_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Adds discharge time from admissions, joins with `d_icd` for descriptive titles, ensures codes are strings, and converts `chartdate` to end-of-day timestamps."""
-    icd_df = add_dischtime(icd_df, admissions_df)
+    icd_df = add_discharge_time_by_hadm_id(icd_df, admissions_df)
     # Cast to string to match d_icd schema
     icd_df = icd_df.with_columns(
         pl.col("icd_code").cast(pl.String),
@@ -106,7 +113,7 @@ def process_ed_diagnosis_df(
     ed_diagnosis_df: pl.LazyFrame, edstays_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Adds the ED departure time (`outtime`) from `edstays`."""
-    return add_outtime(ed_diagnosis_df, edstays_df)
+    return add_out_time_by_stay_id(ed_diagnosis_df, edstays_df)
 
 
 def _round_to_3sf(expr: pl.Expr) -> pl.Expr:
@@ -132,7 +139,7 @@ def process_ed_vitals_with_time_df(
     ed_vitals_with_time_df: pl.LazyFrame, edstays_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Adds ED registration time (`intime`) and converts temperatures > 45 (assumed Fahrenheit) to Celsius."""
-    ed_vitals_with_time_df = add_intime(ed_vitals_with_time_df, edstays_df)
+    ed_vitals_with_time_df = add_reg_time_by_stay_id(ed_vitals_with_time_df, edstays_df)
     return _convert_fahrenheit_to_celsius(ed_vitals_with_time_df)
 
 
@@ -150,23 +157,7 @@ def process_hcpcs_events_df(
     return convert_date_to_end_of_day_timestamp(hcpcs_events_df)
 
 
-def join_hosp_admissions_with_gender(
-    admissions_df: pl.LazyFrame, patients_df: pl.LazyFrame
-) -> pl.LazyFrame:
-    """Joins the `gender` column from the patients table to the admissions table, standardizing 'F'/'M' to 'Female'/'Male'."""
-    return admissions_df.join(
-        patients_df.select(
-            "subject_id",
-            pl.col("gender")
-            .replace_strict({"F": "Female", "M": "Male"}, default=pl.col("gender"))
-            .alias("gender"),
-        ),
-        on="subject_id",
-        how="left",
-    )
-
-
-def process_patients_df(
+def fix_static_data(
     patients_df: pl.LazyFrame, death_times_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Aggregates death times, calculates birth years, standardizes gender, and consolidates death timestamps (preferring admission `deathtime` over `dod`)."""
@@ -179,7 +170,7 @@ def process_patients_df(
 
     return patients_df.join(death_times_df, on="subject_id", how="left").select(
         "subject_id",
-        # If we have a deathtime from admissions, use it; otherwise use dod converted to timestamp at end of day
+        # If we have a deathtime from admissions, use it; otherwise use dod
         pl.coalesce(
             pl.col("deathtime"),
             # dod is date only, convert to timestamp at end of day
@@ -224,7 +215,7 @@ FUNCTIONS = {
         [("hosp/admissions", ["hadm_id", "dischtime"])],
     ),
     "hosp/patients": (
-        process_patients_df,
+        fix_static_data,
         [("hosp/admissions", ["subject_id", "deathtime"])],
     ),
     "hosp/transfers": (process_hosp_transfers_df, None),
@@ -245,10 +236,6 @@ FUNCTIONS = {
     "ed/vitalsign": (
         process_ed_vitals_with_time_df,
         [("ed/edstays", ["stay_id", "intime"])],
-    ),
-    "hosp/admissions": (
-        join_hosp_admissions_with_gender,
-        [("hosp/patients", ["subject_id", "gender"])],
     ),
 }
 

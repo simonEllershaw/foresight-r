@@ -306,7 +306,6 @@ ed/vitalsign:
       - "Emergency Department Vital Signs"
       - "Pain Score"
       - col(pain)
-      - (1 high - 5 low)
     text_value: pain
     time: col(charttime)
     time_format:

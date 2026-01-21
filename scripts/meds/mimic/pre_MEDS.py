@@ -66,20 +66,29 @@ def process_lab_events_df(
 def process_admissions_df(
     admissions_df: pl.LazyFrame, patients_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Joins admissions with `patients` to add the standardized `gender` column."""
+    """Joins admissions with `patients` to add the standardized `gender` column and title case columns."""
     patients_df = patients_df.select("subject_id", "gender").with_columns(
         pl.col("gender").replace_strict(
             {"F": "Female", "M": "Male"}, default=pl.col("gender")
         )
     )
-    return admissions_df.join(patients_df, on="subject_id", how="left")
+    admissions_df = admissions_df.join(patients_df, on="subject_id", how="left")
+    return admissions_df.with_columns(
+        pl.col("admission_type").str.to_titlecase(),
+        pl.col("admission_location").str.to_titlecase(),
+        pl.col("discharge_location").str.to_titlecase(),
+        pl.col("race").str.to_titlecase(),
+        pl.col("marital_status").str.to_titlecase(),
+        pl.col("insurance").str.to_titlecase(),
+    )
 
 
 def process_drgcodes_df(
     drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Filters for 'HCFA' DRG codes (as in ETHOS-ARES) and adds the discharge time from admissions."""
+    """Filters for 'HCFA' DRG codes (as in ETHOS-ARES), title case the description column and adds the discharge time from admissions."""
     drgcodes_df = drgcodes_df.filter(pl.col("drg_type") == "HCFA")
+    drgcodes_df = drgcodes_df.with_columns(pl.col("description").str.to_titlecase())
     return add_discharge_time_by_hadm_id(drgcodes_df, admissions_df)
 
 
@@ -125,6 +134,9 @@ def process_ed_diagnosis_df(
     ed_diagnosis_df: pl.LazyFrame, edstays_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Adds the ED departure time (`outtime`) from `edstays`."""
+    ed_diagnosis_df = ed_diagnosis_df.with_columns(
+        pl.col("icd_title").str.to_titlecase()
+    )
     return add_out_time_by_stay_id(ed_diagnosis_df, edstays_df)
 
 
@@ -195,6 +207,14 @@ def fix_static_data(
     )
 
 
+def process_ed_stays_df(ed_stays_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Convert arrival_transport and disposition columns to title case."""
+    return ed_stays_df.with_columns(
+        pl.col("arrival_transport").str.to_titlecase(),
+        pl.col("disposition").str.to_titlecase(),
+    )
+
+
 # Processing functions registry for MIMIC-IV data files.
 # Format: {
 #     "relative/path/to/file": (
@@ -244,6 +264,7 @@ FUNCTIONS = {
         [("hosp/d_hcpcs", ["code", "long_description", "short_description"])],
     ),
     "hosp/omr": (convert_date_to_end_of_day_timestamp, None),
+    "ed/edstays": (process_ed_stays_df, None),
     "ed/diagnosis": (process_ed_diagnosis_df, [("ed/edstays", ["stay_id", "outtime"])]),
     "ed/triage": (
         process_ed_vitals_with_time_df,

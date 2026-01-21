@@ -46,6 +46,7 @@ stage_configs:
     _script: custom-meds-transform-clean-code
     column: code
     strip_whitespace: true
+    # Do in pre-MEDS step to avoid issues with units/acronyms
     to_titlecase: false
     patterns:
       - pattern: "//"

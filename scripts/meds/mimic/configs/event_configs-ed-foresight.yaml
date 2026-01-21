@@ -223,7 +223,8 @@ hosp/hcpcsevents:
       - "Healthcare Common Procedure Coding System"
       - col(long_description)
     time: col(chartdate)
-    time_format: "%Y-%m-%d"
+    # Set to EOD in pre-MEDS so already in Datetime format
+    # time_format: "%Y-%m-%d %H:%M:%S"
 
 hosp/labevents:
   lab:
@@ -327,7 +328,8 @@ hosp/omr:
       - col(result_name)
       - col(result_value)
     time: col(chartdate)
-    time_format: "%Y-%m-%d"
+    # Set to EOD in pre-MEDS so already in Datetime format
+    # time_format: "%Y-%m-%d %H:%M:%S"
 
 hosp/patients:
   dob:
@@ -346,9 +348,10 @@ hosp/patients:
       - "Death"
       - "Died"
     time: col(dod)
-    time_format:
-      - "%Y-%m-%d %H:%M:%S"
-      - "%Y-%m-%d"
+    # Set to EOD in pre-MEDS so already in Datetime format
+    # time_format:
+    #   - "%Y-%m-%d %H:%M:%S"
+    #   - "%Y-%m-%d"
 
 # Not used in ETHOS-ARES
 #hosp/pharmacy:
@@ -382,7 +385,8 @@ hosp/procedures_icd:
       - "Hospital Procedure"
       - col(long_title)
     time: col(chartdate)
-    time_format: "%Y-%m-%d"
+    # Set to EOD in pre-MEDS so already in Datetime format
+    # time_format: "%Y-%m-%d %H:%M:%S"
 
 hosp/transfers:
   transfer:

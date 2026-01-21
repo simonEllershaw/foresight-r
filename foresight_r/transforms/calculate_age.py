@@ -59,17 +59,16 @@ def calculate_age_fntr(
         │ 2          ┆ Diagnosis ┆ 20       ┆107      │
         └────────────┴───────────┴──────────┴─────────┘
     """
-    birth_code = stage_cfg.get("birth_code", "Born")
+    birth_prefix = stage_cfg.get("birth_prefix", "Birth")
 
     def calculate_age_fn(df: pl.LazyFrame) -> pl.LazyFrame:
         """Calculate age using calendar years (age_year) and days since last birthday (age_day)."""
         # Extract birth time for each subject using window function
         # This finds the time value where code matches birth_code for each subject_id
         birth_time = (
-            pl.when(pl.col("code") == birth_code)
-            .then(pl.col("time"))
-            .otherwise(None)
-            .max()
+            pl.col("time")
+            .filter(pl.col("prefix") == birth_prefix)
+            .first()  # Takes the first match if there are multiple
             .over("subject_id")
         )
 

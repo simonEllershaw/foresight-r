@@ -6,7 +6,7 @@ from pathlib import Path
 END_OF_DAY = pl.time(23, 59, 59, 999999)
 
 
-def changed(col: str, default: bool = False) -> pl.Expr:
+def changed(col: str, default: bool = True) -> pl.Expr:
     """Detect when a column value changes from the previous row."""
     return (pl.col(col) != pl.col(col).shift(1)).fill_null(default)
 
@@ -24,7 +24,7 @@ def patient_to_text(patient_df: pl.DataFrame) -> str:
     """
     age_changed = changed("age_year") | changed("age_day")
     time_changed = changed("time_of_day")
-    prefix_changed = changed("prefix", default=True)
+    prefix_changed = changed("prefix")
     section_changed = age_changed | time_changed
 
     df = patient_df.with_columns(

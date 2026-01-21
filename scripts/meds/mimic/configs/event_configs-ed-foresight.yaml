@@ -23,7 +23,9 @@ ed/triage:
   temperature:
     code:
       - "Emergency Department Triage"
-      - "Temperature °C"
+      - "Temperature"
+      - col(temperature)
+      - "°C"
     numeric_value: temperature
     time: col(intime)
     time_format:
@@ -31,7 +33,9 @@ ed/triage:
   heart_rate:
     code:
       - "Emergency Department Triage"
-      - "Heart Rate bpm"
+      - "Heart Rate"
+      - col(heartrate)
+      - "bpm"
     numeric_value: heartrate
     time: col(intime)
     time_format:
@@ -39,7 +43,9 @@ ed/triage:
   respiratory_rate:
     code:
       - "Emergency Department Triage"
-      - "Respiratory Rate breaths/min"
+      - "Respiratory Rate"
+      - col(resprate)
+      - "breaths/min"
     numeric_value: resprate
     time: col(intime)
     time_format:
@@ -47,7 +53,9 @@ ed/triage:
   o2_saturation:
     code:
       - "Emergency Department Triage"
-      - "O2 Saturation %"
+      - "O2 Saturation"
+      - col(o2sat)
+      - "%"
     numeric_value: o2sat
     time: col(intime)
     time_format:
@@ -55,7 +63,9 @@ ed/triage:
   systolic_blood_pressure:
     code:
       - "Emergency Department Triage"
-      - "Systolic Blood Pressure mmHg"
+      - "Systolic Blood Pressure"
+      - col(sbp)
+      - "mmHg"
     numeric_value: sbp
     time: col(intime)
     time_format:
@@ -63,7 +73,9 @@ ed/triage:
   diastolic_blood_pressure:
     code:
       - "Emergency Department Triage"
-      - "Diastolic Blood Pressure mmHg"
+      - "Diastolic Blood Pressure"
+      - col(dbp)
+      - "mmHg"
     numeric_value: dbp
     time: col(intime)
     time_format:
@@ -72,6 +84,8 @@ ed/triage:
     code:
       - "Emergency Department Triage"
       - "Pain Score"
+      - col(pain)
+    # Pain is a string not numeric in MIMIC-IV
     text_value: pain
     time: col(intime)
     time_format:
@@ -79,7 +93,9 @@ ed/triage:
   acuity:
     code:
       - "Emergency Department Triage"
-      - "Severity Score (1 high - 5 low)"
+      - "Severity Score"
+      - col(acuity)
+      - "(1 high - 5 low)"
     numeric_value: acuity
     time: col(intime)
     time_format:
@@ -215,6 +231,7 @@ hosp/labevents:
       - "Laboratory Result"
       - col(fluid)
       - col(label)
+      - col(valuenum)
       - col(valueuom)
     time: col(charttime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -227,6 +244,7 @@ ed/vitalsign:
     code:
       - "Emergency Department Vital Signs"
       - "Temperature"
+      - col(temperature)
       - "°C"
     numeric_value: temperature
     time: col(charttime)
@@ -236,6 +254,7 @@ ed/vitalsign:
     code:
       - "Emergency Department Vital Signs"
       - "Heart Rate"
+      - col(heartrate)
       - "bpm"
     numeric_value: heartrate
     time: col(charttime)
@@ -245,6 +264,7 @@ ed/vitalsign:
     code:
       - "Emergency Department Vital Signs"
       - "Respiratory Rate"
+      - col(resprate)
       - "breaths/min"
     numeric_value: resprate
     time: col(charttime)
@@ -254,6 +274,7 @@ ed/vitalsign:
     code:
       - "Emergency Department Vital Signs"
       - "O2 Saturation"
+      - col(o2sat)
       - "%"
     numeric_value: o2sat
     time: col(charttime)
@@ -263,6 +284,7 @@ ed/vitalsign:
     code:
       - "Emergency Department Vital Signs"
       - "Diastolic Blood Pressure"
+      - col(dbp)
       - "mmHg"
     numeric_value: dbp
     time: col(charttime)
@@ -272,6 +294,7 @@ ed/vitalsign:
     code:
       - "Emergency Department Vital Signs"
       - "Systolic Blood Pressure"
+      - col(sbp)
       - "mmHg"
     numeric_value: sbp
     time: col(charttime)
@@ -282,6 +305,7 @@ ed/vitalsign:
       - "Emergency Department Vital Signs"
       - "Pain Score"
       - col(pain)
+      - (1 high - 5 low)
     text_value: pain
     time: col(charttime)
     time_format:
@@ -308,18 +332,13 @@ hosp/omr:
 hosp/patients:
   dob:
     code:
-      # Not using the MEDS official code for birth (MEDS_BIRTH).
-      - "Birth"
-      - "Born"
-    time: col(year_of_birth)
-    # Set as Y-01-01 00:00:00 internally in pre-MEDS
-    time_format: "%Y"
-  gender:
-    code:
+      # Not using the MEDS official code for birth (MEDS_BIRTH) also include gender.
       - "Birth"
       - "Gender"
       - col(gender)
     time: col(year_of_birth)
+    # Set as Y-01-01 00:00:00 internally in pre-MEDS
+    # Leave at 00:00:00 to ensure no events come before this event
     time_format: "%Y"
   death:
     code:

@@ -235,8 +235,8 @@ def test_calculate_age_handles_same_subject_multiple_events():
         assert ages[i] == expected_age
 
 
-def test_calculate_age_custom_birth_code():
-    """Test that birth_code parameter can be customized."""
+def test_calculate_age_custom_birth_prefix():
+    """Test that birth_prefix parameter can be customized."""
     test_df = pl.DataFrame(
         {
             "subject_id": [1, 1, 1],
@@ -246,17 +246,17 @@ def test_calculate_age_custom_birth_code():
                 datetime(2015, 6, 15),
             ],
             "code": ["DOB", "Event1", "Event2"],
-            "prefix": ["Demographics", "Other", "Other"],
+            "prefix": ["CustomBirth", "Other", "Other"],
         }
     ).lazy()
 
-    # Use custom birth_code
-    fn = calculate_age_fntr(DictConfig({"birth_code": "DOB"}))
+    # Use custom birth_prefix
+    fn = calculate_age_fntr(DictConfig({"birth_prefix": "CustomBirth"}))
     result = fn(test_df).collect()
 
     # Birth row should have age 0
-    assert result.filter(pl.col("code") == "DOB")["age_year"][0] == 0
-    assert result.filter(pl.col("code") == "DOB")["age_day"][0] == 0
+    assert result.filter(pl.col("prefix") == "CustomBirth")["age_year"][0] == 0
+    assert result.filter(pl.col("prefix") == "CustomBirth")["age_day"][0] == 0
 
     # 10 years later
     age_10y = result.filter(pl.col("code") == "Event1")["age_year"][0]
@@ -267,8 +267,8 @@ def test_calculate_age_custom_birth_code():
     assert age_15y == 15
 
 
-def test_calculate_age_default_birth_code():
-    """Test that default birth_code is 'Born'."""
+def test_calculate_age_default_birth_prefix():
+    """Test that default birth_prefix is 'Birth'."""
     test_df = pl.DataFrame(
         {
             "subject_id": [1, 1],
@@ -278,9 +278,9 @@ def test_calculate_age_default_birth_code():
         }
     ).lazy()
 
-    # Use default config (should use "Born" as birth_code)
+    # Use default config (should use "Birth" as birth_prefix)
     fn = calculate_age_fntr(DictConfig({}))
     result = fn(test_df).collect()
 
-    assert result.filter(pl.col("code") == "Born")["age_year"][0] == 0
+    assert result.filter(pl.col("prefix") == "Birth")["age_year"][0] == 0
     assert result.filter(pl.col("code") == "Event")["age_year"][0] == 10

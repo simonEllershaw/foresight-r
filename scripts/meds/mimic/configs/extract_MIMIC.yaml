@@ -46,7 +46,7 @@ stage_configs:
     _script: custom-meds-transform-clean-code
     column: code
     strip_whitespace: true
-    to_titlecase: true
+    to_titlecase: false
     patterns:
       - pattern: "//"
         replacement: " "

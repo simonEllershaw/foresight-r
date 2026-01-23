@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Custom MAP stage that filters rows where both numeric_value and text_value are null.
 
-If `prefixes` is provided in the stage config, rows whose `prefix` is in
-that list will be filtered to remove those where both `numeric_value`
-and `text_value` (if column exists) are null.
-Rows with prefixes not in the list are left unchanged.
+If `prefixes` is provided in the stage config, rows whose `code` column's first
+element (split on '//') is in that list will be filtered to remove those where
+both `numeric_value` and `text_value` (if column exists) are null.
+Rows with codes not matching any of the prefixes are left unchanged.
 If `prefixes` is empty or absent, the transform removes rows where values
 are null for all rows.
 """
@@ -26,8 +26,8 @@ def filter_null_values_fntr(
 
     Config keys:
         - prefixes: Optional[list[str]] - if provided, only rows whose
-          `prefix` is in this list will be subject to null filtering. Other
-          rows are left unchanged.
+          `code` column's first element (split on '//') is in this list
+          will be subject to null filtering. Other rows are left unchanged.
 
     Examples:
         >>> import polars as pl
@@ -35,14 +35,14 @@ def filter_null_values_fntr(
         >>> df = pl.DataFrame({
         ...     "subject_id": [1,2,3],
         ...     "time": [1,2,3],
-        ...     "prefix": ["LAB","LAB","MEDICATION"],
+        ...     "code": ["LAB//glucose","LAB//glucose","MEDICATION//aspirin"],
         ...     "numeric_value": [None, 10.0, None],
         ...     "text_value": [None, None, None]
         ... }).lazy()
         >>> fn = filter_null_values_fntr(DictConfig({"prefixes":["LAB"]}))
-        >>> # Row 1 (LAB, None, None) filtered.
-        >>> # Row 2 (LAB, 10.0, None) kept.
-        >>> # Row 3 (MED, None, None) kept (prefix not in filter list).
+        >>> # Row 1 (LAB//glucose, None, None) filtered.
+        >>> # Row 2 (LAB//glucose, 10.0, None) kept.
+        >>> # Row 3 (MED//aspirin, None, None) kept (code does not start with LAB).
         >>> fn(df).collect().shape
         (2, 5)
     """
@@ -70,8 +70,10 @@ def filter_null_values_fntr(
             is_null_expr = pl.col("text_value").is_null()
 
         if prefixes:
-            # Keep rows where prefix is not in prefixes OR it's not a null row
-            keep_expr = (~pl.col("prefix").is_in(prefixes)) | (~is_null_expr)
+            # Keep rows where code prefix is not in prefixes OR it's not a null row
+            code_prefix = pl.col("code").str.split("//").list.first()
+            match_prefix = code_prefix.is_in(prefixes)
+            keep_expr = (~match_prefix) | (~is_null_expr)
         else:
             # No prefixes provided -> filter out null rows for all
             keep_expr = ~is_null_expr

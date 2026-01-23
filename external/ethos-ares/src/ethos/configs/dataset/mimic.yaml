@@ -17,7 +17,7 @@ stages:
   - name: preprocessing
     transforms:
       # - LabData.retain_only_test_with_numeric_result # Done in extract_MIMIC
-      # - TransferData.retain_only_transfer_and_admit_types # Done in extract_MIMIC
+      # - TransferData.retain_only_transfer_and_admit_types # TODO in extract_MIMIC
       # - DemographicData.retrieve_demographics_from_hosp_adm # No longer treated as static variables
       - DemographicData.process_race
       # - DemographicData.process_marital_status

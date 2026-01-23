@@ -13,7 +13,12 @@ def test_filter_nulls_for_given_prefixes():
         {
             "subject_id": [1, 2, 3, 4],
             "time": [1, 2, 3, 4],
-            "prefix": ["LAB", "LAB", "MEDICATION", "LAB"],
+            "code": [
+                "LAB//glucose",
+                "LAB//glucose",
+                "MEDICATION//aspirin",
+                "LAB//glucose",
+            ],
             "numeric_value": [None, 10.0, None, None],
             "text_value": [None, None, None, "Positive"],
         }
@@ -23,10 +28,10 @@ def test_filter_nulls_for_given_prefixes():
     fn = filter_null_values_fntr(cfg)
     result = fn(df).collect()
 
-    # Row 1: LAB, numeric_value=None, text_value=None -> should be removed
-    # Row 2: LAB, numeric_value=10.0, text_value=None -> should be kept
-    # Row 3: MEDICATION, numeric_value=None, text_value=None -> should be kept (prefix not in list)
-    # Row 4: LAB, numeric_value=None, text_value="Positive" -> should be kept
+    # Row 1: LAB//glucose, numeric_value=None, text_value=None -> should be removed
+    # Row 2: LAB//glucose, numeric_value=10.0, text_value=None -> should be kept
+    # Row 3: MEDICATION//aspirin, numeric_value=None, text_value=None -> should be kept (code doesn't start with LAB)
+    # Row 4: LAB//glucose, numeric_value=None, text_value="Positive" -> should be kept
 
     assert result.shape[0] == 3
     assert result["subject_id"].to_list() == [2, 3, 4]
@@ -37,7 +42,7 @@ def test_filter_nulls_when_no_prefixes_provided():
         {
             "subject_id": [1, 2, 3, 4],
             "time": [1, 2, 3, 4],
-            "prefix": ["A", "B", "C", "D"],
+            "code": ["A//1", "B//2", "C//3", "D//4"],
             "numeric_value": [None, 10.0, None, None],
             "text_value": [None, None, "High", None],
         }
@@ -58,7 +63,7 @@ def test_filter_nulls_without_text_value_column():
         {
             "subject_id": [1, 2],
             "time": [1, 2],
-            "prefix": ["LAB", "LAB"],
+            "code": ["LAB//glucose", "LAB//glucose"],
             "numeric_value": [None, 10.0],
         }
     ).lazy()
@@ -77,7 +82,7 @@ def test_preserve_other_columns_and_empty_dataframe():
         {
             "subject_id": [1, 2],
             "time": [100, 200],
-            "prefix": ["X", "Y"],
+            "code": ["X//1", "Y//2"],
             "numeric_value": [None, None],
             "text_value": ["Foo", None],
         }
@@ -97,7 +102,7 @@ def test_preserve_other_columns_and_empty_dataframe():
         {
             "subject_id": pl.Series([], dtype=pl.Int64),
             "time": pl.Series([], dtype=pl.Int64),
-            "prefix": pl.Series([], dtype=pl.Utf8),
+            "code": pl.Series([], dtype=pl.Utf8),
             "numeric_value": pl.Series([], dtype=pl.Float64),
             "text_value": pl.Series([], dtype=pl.Utf8),
         }

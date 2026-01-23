@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ethos"
+version = "0.1.0"
+description = "ETHOS: Enhanced Transformer for Health Outcome Simulation"
+readme = "README.md"
+authors = [
+    { name = "Arkadiusz Sitek", email = "asitek@mgh.harvard.edu" },
+    { name = "Pawel Renc", email = "rencpawe@gmail.com" },
+]
+maintainers = [
+    { name = "Pawel Renc", email = "rencpawe@gmail.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "hydra-core==1.3.2",
+    "hydra-joblib-launcher",
+    "loguru",
+    "meds_transforms==0.1.1",
+    "numpy",
+    "polars  >= 1.26.0, <= 1.27.9",
+    "pyarrow==20.0.0",
+    "safetensors==0.5.3",
+    "torch==2.7.1",
+    "tqdm",
+    "transformers==4.52.4",
+    "wandb",
+]
+
+[project.optional-dependencies]
+dev = ["pre-commit<4"]
+tests = ["pytest"]
+jupyter = ["jupyter", "seaborn", "scikit-learn", "matplotlib", "pandas", "altair", "pylatex", "vl-convert-python"]
+
+[project.scripts]
+ethos_tokenize = "ethos.tokenize.run_tokenization:main"
+ethos_train = "ethos.train.run_training:main"
+ethos_infer = "ethos.inference.run_inference:main"
+
+[tool.setuptools.package-data]
+ethos = ["tokenize/maps/*.csv.gz"]

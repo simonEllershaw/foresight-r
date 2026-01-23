@@ -19,7 +19,9 @@ MIMICIV_MEDS_DIR     := data/mimic-iv-meds
 MIMIC_MEDS_SCRIPT_DIR := scripts/meds/mimic
 N_WORKERS             := 1
 
-.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file test
+ACES_OUTPUT_DIR := data/aces_outputs
+
+.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file test aces_outputs
 
 # ------------------------------------------------------------------------------
 # Helper Functions
@@ -94,3 +96,11 @@ sample_markdown_file:
 
 test:
 	uv run pytest
+
+aces_outputs:
+	uv run aces-cli data.path="data/mimic-iv-meds/data/train" \
+		data.standard="meds" \
+		config_path="scripts/aces/sample/readmission.yaml" \
+		cohort_dir=$(ACES_OUTPUT_DIR) \
+		cohort_name="readmission" \
+		output_filepath="$(ACES_OUTPUT_DIR)/readmission.parquet" \

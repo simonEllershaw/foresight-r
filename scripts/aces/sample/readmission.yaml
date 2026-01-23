@@ -1,0 +1,26 @@
+# Task: 30-day Readmission Risk Prediction
+predicates:
+  admission:
+    prefix: "Hospital Admission"
+    code: { regex: "Gender.*" }
+
+
+  discharge:
+    prefix: "Hospital Discharge"
+    code: { regex: "Location.*" }
+
+trigger: admission
+
+windows:
+  input:
+    start: trigger
+    end: start -> discharge
+    start_inclusive: False
+    end_inclusive: True
+    index_timestamp: end
+  target:
+    start: input.end
+    end: start + 30 days
+    start_inclusive: False
+    end_inclusive: True
+    label: admission

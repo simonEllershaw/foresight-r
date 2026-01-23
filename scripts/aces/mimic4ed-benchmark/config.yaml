@@ -1,0 +1,109 @@
+# ACES Configuration for MIMIC-IV-ED Benchmark Tasks
+# Based on definitions from: https://github.com/nliulab/mimic4ed-benchmark
+
+# -----------------------------------------------------------------------------
+# Predicate Definitions (Mapping raw data to concepts)
+# -----------------------------------------------------------------------------
+predicates:
+  # Trigger Event: Patient arrives at the ED
+  - name: ed_arrival
+    code: ED_ARRIVAL
+    description: "Timestamp of patient arrival at the Emergency Department."
+
+  # Trigger Event: Patient is discharged from the ED
+  - name: ed_discharge
+    code: ED_DISCHARGE
+    description: "Timestamp of patient discharge from the Emergency Department."
+
+  # Outcome Component: Hospital Admission
+  # Definition: Disposition indicates admission or an inpatient hadm_id is generated.
+  - name: hospital_admission
+    code: ADMISSION
+    description: "Patient admitted to hospital (inpatient) following ED stay."
+
+  # Outcome Component: ICU Transfer
+  # Definition: Transfer to an ICU careunit.
+  - name: icu_transfer
+    code: TRANSFER_ICU
+    description: "Patient transferred to an Intensive Care Unit."
+
+  # Outcome Component: Death
+  # Definition: In-hospital mortality or expired disposition.
+  - name: death
+    code: DEATH
+    description: "Patient death recorded."
+
+  # Exclusion/Filter: Discharged Home
+  # Used for Reattendance task (only counts if patient was sent home).
+  - name: discharged_home
+    code: DISCHARGE_HOME
+    description: "Patient disposition was Home/Self-Care."
+
+# -----------------------------------------------------------------------------
+# Cohort Definitions
+# -----------------------------------------------------------------------------
+cohorts:
+  # ---------------------------------------------------------------------------
+  # Task 1: Hospitalization Prediction
+  # Objective: Predict if the patient will be admitted to the hospital at ED triage.
+  # ---------------------------------------------------------------------------
+  - name: mimic4ed_hospitalization
+    description: "Predict hospital admission based on data available at ED triage."
+
+    trigger: ed_arrival
+
+    # Task specific inclusion criteria (e.g., adults only, usually >18)
+    inclusion_criteria:
+      - "age >= 18"
+
+    outcome:
+      name: hospitalization_outcome
+      predicate: hospital_admission
+      # Window: Looks for admission linked to this stay (0 to e.g., 24h or linked event)
+      # Note: In ACES, windows are relative to trigger.
+      # We assume admission decision happens within a reasonable ED timeframe (e.g., 48h).
+      window: [0 hours, 48 hours]
+
+  # ---------------------------------------------------------------------------
+  # Task 2: Critical Outcome Prediction
+  # Objective: Predict In-Hospital Mortality OR ICU Transfer within 12 hours.
+  # ---------------------------------------------------------------------------
+  - name: mimic4ed_critical
+    description: "Predict critical outcome (Death or ICU transfer < 12h) at triage."
+
+    trigger: ed_arrival
+
+    inclusion_criteria:
+      - "age >= 18"
+
+    outcome:
+      name: critical_outcome
+      # Composite outcome: Death OR ICU Transfer
+      operator: any
+      predicates:
+        - death
+        - icu_transfer
+      # Benchmark definition: ICU transfer within 12 hours of presentation
+      window: [0 hours, 12 hours]
+
+  # ---------------------------------------------------------------------------
+  # Task 3: ED Reattendance (72h)
+  # Objective: Predict return to ED within 72 hours for patients discharged home.
+  # ---------------------------------------------------------------------------
+  - name: mimic4ed_reattendance
+    description: "Predict ED return visit within 72h for patients discharged home."
+
+    # Trigger is Discharge for this task, as we are predicting return after leaving.
+    trigger: ed_discharge
+
+    inclusion_criteria:
+      - "age >= 18"
+      # Only include patients who were actually sent home
+      - predicate: discharged_home
+        window: [0 hours, 0 hours] # Must occur at trigger time
+
+    outcome:
+      name: reattendance_outcome
+      predicate: ed_arrival
+      # Benchmark definition: Return visit within 3 days (72 hours)
+      window: [0 hours, 72 hours]

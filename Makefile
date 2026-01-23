@@ -21,7 +21,7 @@ N_WORKERS             := 1
 
 ACES_OUTPUT_DIR := data/aces_outputs
 
-.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file test aces_outputs
+.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file test aces_outputs ethos-tokenization
 
 # ------------------------------------------------------------------------------
 # Helper Functions
@@ -82,14 +82,14 @@ run-meds-extraction:
 	@echo "Running MEDS transform runner..."
 	MIMICIV_PRE_MEDS_DIR="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)" \
 	MIMICIV_MEDS_COHORT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
-	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/event_configs-ed-foresight.yaml" \
+	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/event_configs-ed-foresight-v2.yaml" \
 	N_WORKERS=$(N_WORKERS) \
 	uv run MEDS_transform-runner \
 		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/extract_MIMIC.yaml" \
 		stage_runner_fp="$(CURDIR)/scripts/meds/local_parallelism_runner.yaml"
 
 	@echo "Create sample patient markdown file..."
-	uv run python scripts/sandbox/convert_patient_to_md.py
+# 	uv run python scripts/sandbox/convert_patient_to_md.py
 
 sample_markdown_file:
 	uv run python scripts/sandbox/convert_patient_to_md.py
@@ -104,3 +104,6 @@ aces_outputs:
 		cohort_dir=$(ACES_OUTPUT_DIR) \
 		cohort_name="readmission" \
 		output_filepath="$(ACES_OUTPUT_DIR)/readmission.parquet" \
+
+ethos-tokenization:
+	PYTHONPATH=external/ethos-ares/src uv run python -m ethos.tokenize.run_tokenization input_dir=data/mimic-iv-meds/data/train output_dir=data/mimic-iv-ethos-tokenized out_fn=train overwrite=True

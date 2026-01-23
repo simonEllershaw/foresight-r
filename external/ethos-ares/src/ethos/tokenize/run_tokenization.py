@@ -29,6 +29,11 @@ def main(cfg: DictConfig):
     output_dir = Path(cfg.output_dir) / out_fn
     # Update the real output directory path
     cfg.output_dir = str(output_dir)
+
+    if cfg.get("overwrite", False) and output_dir.exists():
+        logger.info(f"Overwriting previous outputs in '{output_dir}'.")
+        shutil.rmtree(output_dir)
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(
@@ -71,16 +76,16 @@ def main(cfg: DictConfig):
     if cfg.worker == 1:
         if cfg.vocab is None:
             vocab = Vocabulary()
-            with (output_dir / STATIC_DATA_FN).open("rb") as f:
-                static_codes = sorted(
-                    {
-                        code
-                        for pt_static_data in pickle.load(f).values()
-                        for static_data_obj in pt_static_data.values()
-                        for code in static_data_obj["code"]
-                    }.difference([str(ST.DOB)])
-                )
-            vocab.add_words(static_codes)
+            # with (output_dir / STATIC_DATA_FN).open("rb") as f:
+            #     static_codes = sorted(
+            #         {
+            #             code
+            #             for pt_static_data in pickle.load(f).values()
+            #             for static_data_obj in pt_static_data.values()
+            #             for code in static_data_obj["code"]
+            #         }.difference([str(ST.DOB)])
+            #     )
+            # vocab.add_words(static_codes)
 
             codes = pl.read_csv(output_dir / cfg.code_counts_fn, columns="code")[
                 "code"
@@ -104,5 +109,5 @@ def main(cfg: DictConfig):
         for in_fp in in_fps:
             TimelineDataset.tensorize(in_fp, output_dir / in_fp.name, vocab)
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()

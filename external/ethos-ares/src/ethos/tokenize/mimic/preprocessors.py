@@ -38,36 +38,31 @@ class DemographicData:
         ).explode("code", "text_value")
 
     @staticmethod
-    @MatchAndRevise(prefix="RACE", apply_vocab=True)
+    @MatchAndRevise(prefix="Hospital Admission//Race", apply_vocab=True)
     def process_race(df: pl.DataFrame) -> pl.DataFrame:
-        race_unknown = ["UNKNOWN", "UNABLE TO OBTAIN", "PATIENT DECLINED TO ANSWER"]
+        race_unknown = ["Unknown", "Unable To Obtain", "Patient Declined To Answer"]
         race_minor = [
-            "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER",
-            "AMERICAN INDIAN/ALASKA NATIVE",
-            "MULTIPLE RACE/ETHNICITY",
+            "Native Hawaiian Or Other Pacific Islander",
+            "American Indian/Alaska Native",
+            "Multiple Race/Ethnicity",
         ]
-        # every patient can have only one race assigned, so we can prioritize which one to keep
-        race_priority_mapping = {
-            "RACE//OTHER": 1,
-            "RACE//UNKNOWN": 2,
-        }  # every other will get 0
         return (
             df.with_columns(
                 code=pl.when(pl.col("text_value").is_in(race_unknown))
-                .then(pl.lit("UNKNOWN"))
+                .then(pl.lit("Unknown"))
                 .when(pl.col("text_value").is_in(race_minor))
-                .then(pl.lit("OTHER"))
-                .when(pl.col("text_value") == "SOUTH AMERICAN")
-                .then(pl.lit("HISPANIC"))
-                .when(pl.col("text_value") == "PORTUGUESE")
-                .then(pl.lit("WHITE"))
+                .then(pl.lit("Other"))
+                .when(pl.col("text_value") == "South American")
+                .then(pl.lit("Hispanic"))
+                .when(pl.col("text_value") == "Portuguese")
+                .then(pl.lit("White"))
                 .when(pl.col("text_value").str.contains_any(["/", " "]))
                 .then(pl.lit(None))
                 .otherwise("text_value")
             )
             .with_columns(
                 code=(
-                    pl.lit("RACE//")
+                    pl.lit("Hospital Admission//Race//")
                     + pl.when(pl.col("code").is_null())
                     .then(
                         pl.col("text_value").str.slice(
@@ -76,17 +71,6 @@ class DemographicData:
                     )
                     .otherwise("code")
                 )
-            )
-            .group_by(MatchAndRevise.sort_cols[0], maintain_order=True)
-            .agg(
-                pl.col("code")
-                .sort_by(
-                    pl.col.code.replace_strict(
-                        race_priority_mapping, default=0, return_dtype=pl.UInt8
-                    )
-                )
-                .first(),
-                pl.exclude("code").first(),
             )
             .select(df.columns)
         )
@@ -588,12 +572,12 @@ class BMIData:
 
 class LabData:
     @staticmethod
-    @MatchAndRevise(prefix="LAB//", apply_vocab=True)
+    @MatchAndRevise(prefix="Laboratory Result//", apply_vocab=True)
     def retain_only_test_with_numeric_result(df: pl.DataFrame) -> pl.DataFrame:
         return df.filter(pl.col("numeric_value").is_not_null())
 
     @staticmethod
-    @MatchAndRevise(prefix="LAB//", needs_counts=True, needs_vocab=True)
+    @MatchAndRevise(prefix="Laboratory Result//", needs_counts=True, needs_vocab=True)
     def make_quantiles(
         df: pl.DataFrame,
         counts: dict[str, int] | None = None,

@@ -42,27 +42,27 @@ stage_configs:
       - "Emergency Department Vital Signs"
       - "Emergency Department Triage"
       - "Laboratory Result"
-  clean_code:
-    _script: custom-meds-transform-clean-code
-    column: code
-    strip_whitespace: true
-    # Do in pre-MEDS step to avoid issues with units/acronyms
-    to_titlecase: false
-    patterns:
-      - pattern: "//"
-        replacement: " "
-      - pattern: "UNK"
-        replacement: "Unknown"
-      - pattern: '(\s){2,}'
-        replacement: " "
-  calculate_age:
-    _script: custom-meds-transform-calculate-age
-    birth_code: "Born"
-  add_time_column:
-    _script: custom-meds-transform-add-time-column
-    time_format: "%H:%M"
-    replace_end_of_day: true
-    end_of_day_fill_value: "Time Unspecified"
+  # clean_code:
+  #   _script: custom-meds-transform-clean-code
+  #   column: code
+  #   strip_whitespace: true
+  #   # Do in pre-MEDS step to avoid issues with units/acronyms
+  #   to_titlecase: false
+  #   patterns:
+  #     - pattern: "//"
+  #       replacement: " "
+  #     - pattern: "UNK"
+  #       replacement: "Unknown"
+  #     - pattern: '(\s){2,}'
+  #       replacement: " "
+  # calculate_age:
+  #   _script: custom-meds-transform-calculate-age
+  #   birth_code: "Born"
+  # add_time_column:
+  #   _script: custom-meds-transform-add-time-column
+  #   time_format: "%H:%M"
+  #   replace_end_of_day: true
+  #   end_of_day_fill_value: "Time Unspecified"
 
 stages:
   - shard_events
@@ -70,11 +70,11 @@ stages:
   - convert_to_sharded_events
   - merge_to_MEDS_cohort
   #### Custom transforms ####
-  - create_prefix_column
-  - filter_null_values
-  - clean_code
-  - calculate_age
-  - add_time_column
+  # - create_prefix_column
+  # - filter_null_values
+  # - clean_code
+  # - calculate_age
+  # - add_time_column
   ##############################
   - extract_code_metadata
   - finalize_MEDS_metadata

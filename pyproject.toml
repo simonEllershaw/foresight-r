@@ -21,6 +21,7 @@ dependencies = [
     "es-aces>=0.6.2",
     "hydra-joblib-launcher>=1.2.0",
     "datasets>=4.0.0",
+    "torch>=2.9.1",
 ]
 
 [project.optional-dependencies]

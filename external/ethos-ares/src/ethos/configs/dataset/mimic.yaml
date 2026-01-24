@@ -77,12 +77,13 @@ stages:
       - DiagnosesData.prepare_codes_for_processing
       - DiagnosesData.convert_icd_9_to_10
       - DiagnosesData.process_icd10
-      # - ProcedureData.prepare_codes_for_processing
-      # - ProcedureData.convert_icd_9_to_10
-      # - ProcedureData.process_icd10
-      # - MedicationData.convert_to_atc
+      - ProcedureData.prepare_codes_for_processing
+      - ProcedureData.convert_icd_9_to_10
+      - ProcedureData.process_icd10
+      - MedicationData.convert_to_atc
     vocab: ${vocab}
 
+  # Don't have static events now
   # - name: StaticDataCollector
   #   agg_to: ${output_dir}/static_data.pickle
   #   params:
@@ -102,15 +103,15 @@ stages:
   #       - RACE
   #     is_prefix: true
 
-  # - name: inject_time_intervals
-  #   params:
-  #     time_intervals_spec: ${time_intervals_spec}
+  - name: inject_time_intervals
+    params:
+      time_intervals_spec: ${time_intervals_spec}
 
-  # - name: IntervalEstimator
-  #   params:
-  #     time_intervals_spec: ${time_intervals_spec}
-  #   agg_to: ${output_dir}/${intervals_fn}
-  #   skip: ${is_not_null:${vocab}}
+  - name: IntervalEstimator
+    params:
+      time_intervals_spec: ${time_intervals_spec}
+    agg_to: ${output_dir}/${intervals_fn}
+    skip: ${is_not_null:${vocab}}
 
   - name: CodeCounter
     agg_to: ${output_dir}/${code_counts_fn}

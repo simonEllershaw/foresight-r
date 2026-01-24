@@ -352,7 +352,7 @@ class DiagnosesData:
 
 class ProcedureData:
     @staticmethod
-    @MatchAndRevise(prefix="PROCEDURE")
+    @MatchAndRevise(prefix="HOSPITAL_PROCEDURE")
     def prepare_codes_for_processing(df: pl.DataFrame) -> pl.DataFrame:
         return (
             df.with_columns(pl.col.code.str.split("//"))
@@ -401,7 +401,7 @@ class ProcedureData:
 
 class MedicationData:
     @staticmethod
-    @MatchAndRevise(prefix="MEDICATION", needs_vocab=True)
+    @MatchAndRevise(prefix="HOSPITAL_MEDICATION", needs_vocab=True)
     def convert_to_atc(
         df: pl.DataFrame, vocab: list[str] | None = None
     ) -> pl.DataFrame:

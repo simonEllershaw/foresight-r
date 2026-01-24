@@ -404,8 +404,11 @@ hosp/procedures_icd:
   procedure:
     code:
       - "HOSPITAL_PROCEDURE"
-      # Long title derived from icd_version and code
-      - col(long_title)
+      - "ICD"
+      - col(icd_version)
+      - col(icd_code)
+    # Long title derived from icd_version and code
+    text_value: col(long_title)
     hadm_id: hadm_id
     time: col(chartdate)
     # Set to EOD in pre-MEDS so already in Datetime format

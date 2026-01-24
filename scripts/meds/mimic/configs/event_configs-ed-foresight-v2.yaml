@@ -11,8 +11,8 @@ subject_id_col: subject_id
 ed/edstays:
   ed_registration:
     code:
-      - "Emergency Department Registration"
-      - "Arrival Transport"
+      - "EMERGENCY_DEPARTMENT_REGISTRATION"
+      - "ARRIVAL_TRANSPORT"
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
     text_value: arrival_transport
@@ -20,8 +20,8 @@ ed/edstays:
     stay_id: stay_id
   ed_out:
     code:
-      - "Emergency Department Discharge"
-      - "To"
+      - "EMERGENCY_DEPARTMENT_DISCHARGE"
+      - "TO"
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
     text_value: disposition
@@ -32,8 +32,8 @@ ed/edstays:
 ed/triage:
   temperature:
     code:
-      - "Emergency Department Triage"
-      - "Temperature °C"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "TEMPERATURE_°C"
     numeric_value: temperature
     time: col(intime)
     time_format:
@@ -41,8 +41,8 @@ ed/triage:
     stay_id: stay_id
   heart_rate:
     code:
-      - "Emergency Department Triage"
-      - "Heart Rate bpm"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "HEART_RATE_BPM"
     numeric_value: heartrate
     time: col(intime)
     time_format:
@@ -50,8 +50,8 @@ ed/triage:
     stay_id: stay_id
   respiratory_rate:
     code:
-      - "Emergency Department Triage"
-      - "Respiratory Rate breaths/min"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "RESPIRATORY_RATE_BREATHS/MIN"
     numeric_value: resprate
     time: col(intime)
     time_format:
@@ -59,25 +59,27 @@ ed/triage:
     stay_id: stay_id
   o2_saturation:
     code:
-      - "Emergency Department Triage"
-      - "O2 Saturation %"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "O2_SATURATION_%"
     numeric_value: o2sat
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
 # Treat systolic and diastolic blood pressure seperately so can filter null values seperately
   systolic_blood_pressure:
     code:
-      - "Emergency Department Triage"
-      - "Systolic Blood Pressure mmHg"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "SYSTOLIC_BLOOD_PRESSURE_MMHG"
     numeric_value: sbp
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   diastolic_blood_pressure:
     code:
-      - "Emergency Department Triage"
-      - "Diastolic Blood Pressure mmHg"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "DIASTOLIC_BLOOD_PRESSURE_MMHG"
     numeric_value: dbp
     time: col(intime)
     time_format:
@@ -85,8 +87,8 @@ ed/triage:
     stay_id: stay_id
   pain:
     code:
-      - "Emergency Department Triage"
-      - "Pain Score"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "PAIN_SCORE"
     # Pain is a string not numeric in MIMIC-IV
     text_value: pain
     time: col(intime)
@@ -95,8 +97,8 @@ ed/triage:
     stay_id: stay_id
   acuity:
     code:
-      - "Emergency Department Triage"
-      - "Severity Score (1 high - 5 low)" # Severity makes more semantic sense than acuity (to me)
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "SEVERITY_SCORE_(1_HIGH_-_5_LOW)" # Severity makes more semantic sense than acuity (to me)
     numeric_value: acuity
     time: col(intime)
     time_format:
@@ -105,8 +107,8 @@ ed/triage:
   # Free text so dropped to allow for structured vs LLM comparison
   # chiefcomplaint:
   #   code:
-  #     - "Emergency Department Triage"
-  #     - "Chief Complaint"
+  #     - "EMERGENCY_DEPARTMENT_TRIAGE"
+  #     - "CHIEF_COMPLAINT"
   #   text_value: chiefcomplaint
   #   time: col(intime)
   #   time_format:
@@ -116,9 +118,12 @@ ed/triage:
 ed/diagnosis:
   diagnosis:
     code:
-      - "Emergency Department Diagnosis"
-      # Use icd_title instead of code (still unique)
-      - icd_title
+      - "EMERGENCY_DEPARTMENT_DIAGNOSIS"
+      - ICD
+      - col(icd_version)
+      - col(icd_code)
+    # Long title derived from icd_version and code
+    text_value: col(icd_title)
     stay_id: stay_id
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -126,57 +131,58 @@ ed/diagnosis:
 hosp/admissions:
   admission:
     code:
-      - "Hospital Admission"
+      - "HOSPITAL_ADMISSION"
+      - "TYPE"
       - col(admission_type)
-      - "from"
+      - "FROM"
       - col(admission_location)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   # Multiple insurance, marital status, and race are recorded
-  # Using heuristics such as most frequent is messy when truncating at "differing prediction points"
+  # Using heuristics such as most frequent is messy when truncating at "DIFFERING_PREDICTION_POINTS"
   # So we just include them as recorded both in terms of time and value
   # Then don't have to worry about static variables for truncation etc
   insurance:
     code:
-      - "Hospital Admission"
-      - "Insurance"
+      - "HOSPITAL_ADMISSION"
+      - "INSURANCE"
     text_value: col(insurance)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   marital_status:
     code:
-      - "Hospital Admission"
-      - "Marital Status"
+      - "HOSPITAL_ADMISSION"
+      - "MARITAL_STATUS"
     text_value: col(marital_status)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   race:
     code:
-      - "Hospital Admission"
-      - "Race"
+      - "HOSPITAL_ADMISSION"
+      - "RACE"
     text_value: col(race)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   # Gender joined from subjects table
   gender:
     code:
-      - "Hospital Admission"
-      - "Gender"
+      - "HOSPITAL_ADMISSION"
+      - "GENDER"
     text_value: col(gender)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   # Language not used in Ethos-ARES tokenization
   # language:
   #   code:
-  #     - "Hospital Admission"
-  #     - "Language"
+  #     - "HOSPITAL_ADMISSION"
+  #     - "LANGUAGE"
   #     - col(language)
   #   time: col(admittime)
   #   time_format: "%Y-%m-%d %H:%M:%S"
   discharge:
     code:
-      - "Hospital Discharge"
-      - "Location"
+      - "HOSPITAL_DISCHARGE"
+      - "LOCATION"
       - col(discharge_location)
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -186,8 +192,12 @@ hosp/admissions:
 hosp/diagnoses_icd:
   diagnosis:
     code:
-      - "Hospital Diagnosis"
-      - col(long_title)
+      - "HOSPITAL_DIAGNOSIS"
+      - ICD
+      - col(icd_version)
+      - col(icd_code)
+    # Long title derived from icd_version and code
+    text_value: col(long_title)
     hadm_id: hadm_id
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -195,13 +205,14 @@ hosp/diagnoses_icd:
 hosp/drgcodes:
   drg:
     code:
-      - "Diagnosis Related Groups"
+      - "DIAGNOSIS_RELATED_GROUPS"
+      # Code adds no more information over the description
       - col(description)
     hadm_id: hadm_id
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    # Filter to HCFA drg_type only in pre-MEDS step so drg_type is not used here
-    # text_value: col(drg_type)
+    # Filter by drg_type to only HCFA so not needed in code
+    text_value: col(drg_type)
     # Not used in Ethos-ARES tokenization
     # drg_severity: drg_severity
     # drg_mortality: drg_mortality
@@ -209,7 +220,7 @@ hosp/drgcodes:
 hosp/emar:
   medication:
     code:
-      - "Hospital Medication"
+      - "HOSPITAL_MEDICATION"
       - col(medication)
       - col(event_txt)
     time: col(charttime)
@@ -222,9 +233,9 @@ hosp/emar:
 ed/pyxis:
   medication:
     code:
-      - "Emergency Department Medication"
+      - "EMERGENCY_DEPARTMENT_MEDICATION"
       - col(name)
-      - "Dispensed" # Correct term according to docs (https://physionet.org/content/mimic-iv-ed/2.2/_)
+      - "DISPENSED" # Correct term according to docs (https://physionet.org/content/mimic-iv-ed/2.2/_)
     time: col(charttime)
     time_format: "%Y-%m-%d %H:%M:%S"
     stay_id: stay_id
@@ -232,7 +243,7 @@ ed/pyxis:
 hosp/hcpcsevents:
   hcpcs:
     code:
-      - "Healthcare Common Procedure Coding System"
+      - "HEALTHCARE_COMMON_PROCEDURE_CODING_SYSTEM"
       # Use long_description instead of short_description (still unique)
       - col(long_description)
     hadm_id: hadm_id
@@ -243,7 +254,7 @@ hosp/hcpcsevents:
 hosp/labevents:
   lab:
     code:
-      - "Laboratory Result"
+      - "LABORATORY_RESULT"
       # Fluid + label derived from itemid and unique
       - col(fluid)
       - col(label)
@@ -260,65 +271,72 @@ hosp/labevents:
 ed/vitalsign:
   temperature:
     code:
-      - "Emergency Department Vital Signs"
-      - "Temperature °C"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "TEMPERATURE_°C"
     numeric_value: temperature
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   heart_rate:
     code:
-      - "Emergency Department Vital Signs"
-      - "Heart Rate bpm"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "HEART_RATE_BPM"
     numeric_value: heartrate
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   respiratory_rate:
     code:
-      - "Emergency Department Vital Signs"
-      - "Respiratory Rate breaths/min"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "RESPIRATORY_RATE_BREATHS/MIN"
     numeric_value: resprate
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   o2_saturation:
     code:
-      - "Emergency Department Vital Signs"
-      - "O2 Saturation %"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "O2_SATURATION_%"
     numeric_value: o2sat
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   diastolic_blood_pressure:
     code:
-      - "Emergency Department Vital Signs"
-      - "Diastolic Blood Pressure mmHg"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "DIASTOLIC_BLOOD_PRESSURE_MMHG"
     numeric_value: dbp
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   systolic_blood_pressure:
     code:
-      - "Emergency Department Vital Signs"
-      - "Systolic Blood Pressure mmHg"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "SYSTOLIC_BLOOD_PRESSURE_MMHG"
     numeric_value: sbp
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   pain:
     code:
-      - "Emergency Department Vital Signs"
-      - "Pain Score"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "PAIN_SCORE"
     text_value: pain
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
   # Not in Ethos-ARES as free text field
   # heart_rhythm:
   #   code:
-  #     - "Emergency Department Vital Signs"
-  #     - "Heart Rhythm"
+  #     - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+  #     - "HEART_RHYTHM"
   #     - col(rhythm)
   #   time: col(charttime)
   #   time_format:
@@ -327,7 +345,7 @@ ed/vitalsign:
 hosp/omr:
   omr:
     code:
-      - "Observation Medical Record"
+      - "OBSERVATION_MEDICAL_RECORD"
       - col(result_name)
     text_value: col(result_value)
     time: col(chartdate)
@@ -338,8 +356,8 @@ hosp/patients:
   dob:
     code:
       # Not using the MEDS official code for birth (MEDS_BIRTH) due to semantics also include gender.
-      - "Birth"
-      - "Gender"
+      - "BIRTH"
+      - "GENDER"
     text_value: col(gender)
     time: col(year_of_birth)
     # Set as Y-01-01 00:00:00 internally in pre-MEDS
@@ -348,8 +366,8 @@ hosp/patients:
   death:
     code:
       # Not using the MEDS official code for death (MEDS_DEATH) due to semantics.
-      - "Death"
-      - "Died"
+      - "DEATH"
+      - "DIED"
     time: col(dod)
     # Set to EOD in pre-MEDS so already in Datetime format
     # time_format:
@@ -385,8 +403,8 @@ hosp/patients:
 hosp/procedures_icd:
   procedure:
     code:
-      - "Hospital Procedure"
-      # Use long_title instead of ICD code (still unique)
+      - "HOSPITAL_PROCEDURE"
+      # Long title derived from icd_version and code
       - col(long_title)
     hadm_id: hadm_id
     time: col(chartdate)
@@ -396,9 +414,9 @@ hosp/procedures_icd:
 hosp/transfers:
   transfer:
     code:
-      - "Hospital Transfer"
+      - "HOSPITAL_TRANSFER"
       - col(eventtype)
-      - "to"
+      - "TO"
       - col(careunit)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -407,7 +425,7 @@ hosp/transfers:
 icu/icustays:
   icu_admission:
     code:
-      - "ICU Admission"
+      - "ICU_ADMISSION"
       - col(first_careunit)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
@@ -415,7 +433,7 @@ icu/icustays:
     icustay_id: stay_id
   icu_discharge:
     code:
-      - "ICU Discharge"
+      - "ICU_DISCHARGE"
       - col(last_careunit)
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"

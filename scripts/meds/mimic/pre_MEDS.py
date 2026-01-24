@@ -18,6 +18,158 @@ from omegaconf import DictConfig
 END_OF_DAY = pl.time(23, 59, 59, 999999)
 
 
+def add_dot(code: pl.Expr, position: int) -> pl.Expr:
+    """Adds a dot to the code expression at the specified position.
+
+    Args:
+        code: The code expression.
+        position: The position to add the dot.
+
+    Returns:
+        The expression which would yield the code string with a dot added at the specified position
+
+    Example:
+        >>> pl.select(add_dot(pl.lit("12345"), 3))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ 123.45  │
+        └─────────┘
+        >>> pl.select(add_dot(pl.lit("12345"), 1))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ 1.2345  │
+        └─────────┘
+        >>> pl.select(add_dot(pl.lit("12345"), 6))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ 12345   │
+        └─────────┘
+    """
+    return (
+        pl.when(code.str.len_chars() > position)
+        .then(code.str.slice(0, position) + "." + code.str.slice(position))
+        .otherwise(code)
+    )
+
+
+def add_icd_diagnosis_dot(icd_version: pl.Expr, icd_code: pl.Expr) -> pl.Expr:
+    """Adds the appropriate dot to the ICD diagnosis codebased on the version.
+
+    Args:
+        icd_version: The ICD version.
+        icd_code: The ICD code.
+
+    Returns:
+        The ICD code with appropriate dot syntax based on the version.
+
+    Examples:
+        >>> pl.select(add_icd_diagnosis_dot(pl.lit("9"), pl.lit("12345")))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ 123.45  │
+        └─────────┘
+        >>> pl.select(add_icd_diagnosis_dot(pl.lit("9"), pl.lit("E1234")))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ E123.4  │
+        └─────────┘
+        >>> pl.select(add_icd_diagnosis_dot(pl.lit("9"), pl.lit("F1234")))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ F12.34  │
+        └─────────┘
+        >>> pl.select(add_icd_diagnosis_dot(pl.lit("10"), pl.lit("12345")))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ 123.45  │
+        └─────────┘
+        >>> pl.select(add_icd_diagnosis_dot(pl.lit("10"), pl.lit("E1234")))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ E12.34  │
+        └─────────┘
+    """
+
+    icd9_code = (
+        pl.when(icd_code.str.starts_with("E"))
+        .then(add_dot(icd_code, 4))
+        .otherwise(add_dot(icd_code, 3))
+    )
+
+    icd10_code = add_dot(icd_code, 3)
+
+    return pl.when(icd_version == "9").then(icd9_code).otherwise(icd10_code)
+
+
+def add_icd_procedure_dot(icd_version: pl.Expr, icd_code: pl.Expr) -> pl.Expr:
+    """Adds the appropriate dot to the ICD procedure code based on the version.
+
+    Args:
+        icd_version: The ICD version.
+        icd_code: The ICD code.
+
+    Returns:
+        The ICD code with appropriate dot syntax based on the version.
+
+    Examples:
+        >>> pl.select(add_icd_procedure_dot(pl.lit("9"), pl.lit("12345")))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ 12.345  │
+        └─────────┘
+        >>> pl.select(add_icd_procedure_dot(pl.lit("10"), pl.lit("12345")))
+        shape: (1, 1)
+        ┌─────────┐
+        │ literal │
+        │ ---     │
+        │ str     │
+        ╞═════════╡
+        │ 12345   │
+        └─────────┘
+    """
+
+    icd9_code = add_dot(icd_code, 2)
+    icd10_code = icd_code
+
+    return pl.when(icd_version == "9").then(icd9_code).otherwise(icd10_code)
+
+
 def add_time_by_id(
     df: pl.LazyFrame,
     time_source_df: pl.LazyFrame,
@@ -73,40 +225,41 @@ def process_admissions_df(
         )
     )
     admissions_df = admissions_df.join(patients_df, on="subject_id", how="left")
-    return admissions_df.with_columns(
-        pl.col("admission_type").str.to_titlecase(),
-        pl.col("admission_location").str.to_titlecase(),
-        pl.col("discharge_location").str.to_titlecase(),
-        pl.col("race").str.to_titlecase(),
-        pl.col("marital_status").str.to_titlecase(),
-        pl.col("insurance").str.to_titlecase(),
-    )
+    return admissions_df
+    # return admissions_df.with_columns(
+    #     pl.col("admission_type").str.to_titlecase(),
+    #     pl.col("admission_location").str.to_titlecase(),
+    #     pl.col("discharge_location").str.to_titlecase(),
+    #     pl.col("race").str.to_titlecase(),
+    #     pl.col("marital_status").str.to_titlecase(),
+    #     pl.col("insurance").str.to_titlecase(),
+    # )
 
 
 def process_drgcodes_df(
     drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Filters for 'HCFA' DRG codes (as in ETHOS-ARES), title case the description column and adds the discharge time from admissions."""
-    drgcodes_df = drgcodes_df.filter(pl.col("drg_type") == "HCFA")
-    drgcodes_df = drgcodes_df.with_columns(pl.col("description").str.to_titlecase())
+    # drgcodes_df = drgcodes_df.filter(pl.col("drg_type") == "HCFA")
+    # drgcodes_df = drgcodes_df.with_columns(pl.col("description").str.to_titlecase())
     return add_discharge_time_by_hadm_id(drgcodes_df, admissions_df)
 
 
-def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Maps raw `eventtype` values ('discharge', 'admit', 'transfer') to descriptive text ('Discharge from', 'Admit to', 'Transfer to')."""
-    return hosp_transfers_df.with_columns(
-        pl.col("eventtype").replace_strict(
-            {
-                "discharge": "Discharge from",
-                "admit": "Admit to",
-                "transfer": "Transfer to",
-                # Care unit is always Emergency Department for "ED" eventtypes
-                # So no need to repeat it here
-                "ED": "",
-            },
-            default=pl.col("eventtype"),
-        )
-    )
+# def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
+#     """Maps raw `eventtype` values ('discharge', 'admit', 'transfer') to descriptive text ('Discharge from', 'Admit to', 'Transfer to')."""
+#     return hosp_transfers_df.with_columns(
+#         pl.col("eventtype").replace_strict(
+#             {
+#                 "discharge": "Discharge from",
+#                 "admit": "Admit to",
+#                 "transfer": "Transfer to",
+#                 # Care unit is always Emergency Department for "ED" eventtypes
+#                 # So no need to repeat it here
+#                 "ED": "",
+#             },
+#             default=pl.col("eventtype"),
+#         )
+#     )
 
 
 def process_icd_df(
@@ -134,9 +287,9 @@ def process_ed_diagnosis_df(
     ed_diagnosis_df: pl.LazyFrame, edstays_df: pl.LazyFrame
 ) -> pl.LazyFrame:
     """Adds the ED departure time (`outtime`) from `edstays`."""
-    ed_diagnosis_df = ed_diagnosis_df.with_columns(
-        pl.col("icd_title").str.to_titlecase()
-    )
+    # ed_diagnosis_df = ed_diagnosis_df.with_columns(
+    #     pl.col("icd_title").str.to_titlecase()
+    # )
     return add_out_time_by_stay_id(ed_diagnosis_df, edstays_df)
 
 
@@ -207,12 +360,12 @@ def fix_static_data(
     )
 
 
-def process_ed_stays_df(ed_stays_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Convert arrival_transport and disposition columns to title case."""
-    return ed_stays_df.with_columns(
-        pl.col("arrival_transport").str.to_titlecase(),
-        pl.col("disposition").str.to_titlecase(),
-    )
+# def process_ed_stays_df(ed_stays_df: pl.LazyFrame) -> pl.LazyFrame:
+#     """Convert arrival_transport and disposition columns to title case."""
+#     return ed_stays_df.with_columns(
+#         pl.col("arrival_transport").str.to_titlecase(),
+#         pl.col("disposition").str.to_titlecase(),
+#     )
 
 
 # Processing functions registry for MIMIC-IV data files.
@@ -250,7 +403,7 @@ FUNCTIONS = {
         fix_static_data,
         [("hosp/admissions", ["subject_id", "deathtime"])],
     ),
-    "hosp/transfers": (process_hosp_transfers_df, None),
+    # "hosp/transfers": (process_hosp_transfers_df, None),
     "hosp/labevents": (
         process_lab_events_df,
         [("hosp/d_labitems", ["itemid", "label", "fluid"])],
@@ -264,7 +417,7 @@ FUNCTIONS = {
         [("hosp/d_hcpcs", ["code", "long_description", "short_description"])],
     ),
     "hosp/omr": (convert_date_to_end_of_day_timestamp, None),
-    "ed/edstays": (process_ed_stays_df, None),
+    # "ed/edstays": (process_ed_stays_df, None),
     "ed/diagnosis": (process_ed_diagnosis_df, [("ed/edstays", ["stay_id", "outtime"])]),
     "ed/triage": (
         process_ed_vitals_with_time_df,
@@ -275,6 +428,11 @@ FUNCTIONS = {
         [("ed/edstays", ["stay_id", "intime"])],
     ),
 }
+
+ICD_DFS_TO_FIX = [
+    ("hosp/d_icd_diagnoses", add_icd_diagnosis_dot),
+    ("hosp/d_icd_procedures", add_icd_procedure_dot),
+]
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="pre_MEDS")
@@ -372,33 +530,33 @@ def main(cfg: DictConfig):
             out_dir.mkdir(parents=True, exist_ok=True)
             created_dirs.add(out_dir)
 
-        if pfx not in FUNCTIONS:
+        if pfx not in FUNCTIONS and pfx not in [p for p, _ in ICD_DFS_TO_FIX]:
             logger.info(f"No function needed for {pfx}: Symlinking to output")
             relative_in_fp = fp.relative_to(out_fp.resolve().parent, walk_up=True)
             out_fp.symlink_to(relative_in_fp)
             continue
+        elif pfx in FUNCTIONS:
+            # File requires processing
+            out_fp = MEDS_input_dir / f"{pfx}.parquet"
+            fn, need_dfs = FUNCTIONS[pfx]
 
-        # File requires processing
-        out_fp = MEDS_input_dir / f"{pfx}.parquet"
-        fn, need_dfs = FUNCTIONS[pfx]
+            # If this file doesn't need dependencies, process it immediately
+            if not need_dfs:
+                st = datetime.now()
+                logger.info(f"Processing {pfx}...")
+                df = read_fn(fp)
+                logger.info(f"  Loaded in {datetime.now() - st}")
+                processed_df = fn(df)  # type: ignore
+                write_lazyframe(processed_df, out_fp)
+                logger.info(f"  Wrote to {out_fp.name} in {datetime.now() - st}")
+                continue
 
-        # If this file doesn't need dependencies, process it immediately
-        if not need_dfs:
-            st = datetime.now()
-            logger.info(f"Processing {pfx}...")
-            df = read_fn(fp)
-            logger.info(f"  Loaded in {datetime.now() - st}")
-            processed_df = fn(df)  # type: ignore
-            write_lazyframe(processed_df, out_fp)
-            logger.info(f"  Wrote to {out_fp.name} in {datetime.now() - st}")
-            continue
-
-        # File needs dependencies - defer processing and track requirements
-        for needed_pfx, needed_cols in need_dfs:
-            if needed_pfx not in dfs_to_load:
-                dfs_to_load[needed_pfx] = {"fps": set(), "cols": set()}
-            dfs_to_load[needed_pfx]["fps"].add(fp)
-            dfs_to_load[needed_pfx]["cols"].update(needed_cols)
+            # File needs dependencies - defer processing and track requirements
+            for needed_pfx, needed_cols in need_dfs:
+                if needed_pfx not in dfs_to_load:
+                    dfs_to_load[needed_pfx] = {"fps": set(), "cols": set()}
+                dfs_to_load[needed_pfx]["fps"].add(fp)
+                dfs_to_load[needed_pfx]["cols"].update(needed_cols)
 
     # PHASE 2: Load all dependency dataframes (lookup tables, etc.)
     loaded_dfs: dict[str, pl.LazyFrame] = {}
@@ -465,6 +623,34 @@ def main(cfg: DictConfig):
             write_lazyframe(processed_df, out_fp)
             logger.info(f"    Wrote to {out_fp.name} in {datetime.now() - fp_st}")
             processed_fps.add(fp_key)
+
+    for pfx, fn in ICD_DFS_TO_FIX:
+        fp, read_fn = get_supported_fp(input_dir, pfx)
+        out_fp = MEDS_input_dir / f"{pfx}.parquet"
+
+        if out_fp.is_file():
+            print(f"Done with {pfx}. Continuing")
+            continue
+
+        if fp.suffix != ".parquet":
+            read_fn = partial(read_fn, infer_schema=False)
+
+        st = datetime.now()
+        logger.info(f"Processing {pfx}...")
+        processed_df = (
+            read_fn(fp)
+            .collect()
+            .with_columns(
+                fn(
+                    pl.col("icd_version").cast(pl.String),
+                    pl.col("icd_code").cast(pl.String),
+                ).alias("norm_icd_code")
+            )
+        )
+        processed_df.write_parquet(out_fp, use_pyarrow=True)
+        logger.info(
+            f"  Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - st}"
+        )
 
     # Mark processing as complete
     done_fp.write_text(f"Finished at {datetime.now()}")

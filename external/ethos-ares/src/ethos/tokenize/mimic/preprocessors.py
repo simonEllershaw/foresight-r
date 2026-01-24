@@ -38,33 +38,36 @@ class DemographicData:
         ).explode("code", "text_value")
 
     @staticmethod
-    @MatchAndRevise(prefix="Hospital Admission//Race", apply_vocab=True)
+    @MatchAndRevise(prefix="RACE", apply_vocab=True)
     def process_race(df: pl.DataFrame) -> pl.DataFrame:
-        """Changes: Use title case and don't resolve multiple entries (we keep all race entries now as seperate events)
-        """
-        race_unknown = ["Unknown", "Unable To Obtain", "Patient Declined To Answer"]
+        race_unknown = ["UNKNOWN", "UNABLE TO OBTAIN", "PATIENT DECLINED TO ANSWER"]
         race_minor = [
-            "Native Hawaiian Or Other Pacific Islander",
-            "American Indian/Alaska Native",
-            "Multiple Race/Ethnicity",
+            "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER",
+            "AMERICAN INDIAN/ALASKA NATIVE",
+            "MULTIPLE RACE/ETHNICITY",
         ]
+        # every patient can have only one race assigned, so we can prioritize which one to keep
+        race_priority_mapping = {
+            "RACE//OTHER": 1,
+            "RACE//UNKNOWN": 2,
+        }  # every other will get 0
         return (
             df.with_columns(
                 code=pl.when(pl.col("text_value").is_in(race_unknown))
-                .then(pl.lit("Unknown"))
+                .then(pl.lit("UNKNOWN"))
                 .when(pl.col("text_value").is_in(race_minor))
-                .then(pl.lit("Other"))
-                .when(pl.col("text_value") == "South American")
-                .then(pl.lit("Hispanic"))
-                .when(pl.col("text_value") == "Portuguese")
-                .then(pl.lit("White"))
+                .then(pl.lit("OTHER"))
+                .when(pl.col("text_value") == "SOUTH AMERICAN")
+                .then(pl.lit("HISPANIC"))
+                .when(pl.col("text_value") == "PORTUGUESE")
+                .then(pl.lit("WHITE"))
                 .when(pl.col("text_value").str.contains_any(["/", " "]))
                 .then(pl.lit(None))
                 .otherwise("text_value")
             )
             .with_columns(
                 code=(
-                    pl.lit("Hospital Admission//Race//")
+                    pl.lit("RACE//")
                     + pl.when(pl.col("code").is_null())
                     .then(
                         pl.col("text_value").str.slice(
@@ -74,14 +77,25 @@ class DemographicData:
                     .otherwise("code")
                 )
             )
+            .group_by(MatchAndRevise.sort_cols[0], maintain_order=True)
+            .agg(
+                pl.col("code")
+                .sort_by(
+                    pl.col.code.replace_strict(
+                        race_priority_mapping, default=0, return_dtype=pl.UInt8
+                    )
+                )
+                .first(),
+                pl.exclude("code").first(),
+            )
             .select(df.columns)
         )
 
     @staticmethod
-    @MatchAndRevise(prefix="Hospital Admission//Marital Status", apply_vocab=True)
+    @MatchAndRevise(prefix="MARITAL_STATUS", apply_vocab=True)
     def process_marital_status(df: pl.DataFrame) -> pl.DataFrame:
         return df.drop_nulls("text_value").with_columns(
-            code=pl.col("code") + "//" + pl.col("text_value")
+            code=pl.lit("MARITAL//") + pl.col("text_value")
         )
 
 
@@ -95,68 +109,64 @@ class InpatientData:
         )
 
     @staticmethod
-    @MatchAndRevise(prefix="Hospital Admission//Type")
+    @MatchAndRevise(prefix=ST.ADMISSION)
     def process_hospital_admissions(df: pl.DataFrame) -> pl.DataFrame:
-        """
-        Changes: uses title case, shifts admission_type to index 2 and 
-        does not deal with insurance event
-        """
-        scheduled_admissions = ["Elective", "Surgical Same Day Admission"]
+        scheduled_admissions = ["ELECTIVE", "SURGICAL SAME DAY ADMISSION"]
         return (
             df.with_columns(
-                pl.col.code.str.split("//").list[2].alias("text_value"),
+                pl.col.code.str.split("//").list[0].alias("code"),
+                pl.col.code.str.split("//").list[1].alias("text_value"),
             )
             .with_columns(
                 pl.concat_list(
                     "code",
-                    pl.lit("Hospital Admission//Admission Type//")
+                    pl.lit("ADMISSION_TYPE//")
                     + pl.when(
-                        pl.col("text_value").str.ends_with("Emer.")
-                        | (pl.col("text_value") == "Urgent")
+                        pl.col("text_value").str.ends_with("EMER.")
+                        | (pl.col("text_value") == "URGENT")
                     )
-                    .then(pl.lit("Emergency"))
+                    .then(pl.lit("EMERGENCY"))
                     .when(pl.col("text_value").is_in(scheduled_admissions))
-                    .then(pl.lit("Scheduled"))
-                    .otherwise(pl.lit("Observation")),
-                    # Insurance is it's own event now
-                    # pl.lit("INSURANCE//") + pl.col("insurance"),
+                    .then(pl.lit("SCHEDULED"))
+                    .otherwise(pl.lit("OBSERVATION")),
+                    pl.lit("INSURANCE//") + pl.col("insurance"),
                 ).alias("code")
             )
-        ).explode("code")
+            .explode("code")
+        )
 
     @staticmethod
-    @MatchAndRevise(prefix=["Hospital Discharge//", "Emergency Department Diagnosis//", "Hospital Diagnosis//", "Diagnosis Related Groups//"])
+    @MatchAndRevise(prefix=[ST.DISCHARGE, "DIAGNOSIS//ICD//", "DRG//"])
     def process_hospital_discharges(df: pl.DataFrame) -> pl.DataFrame:
         """Currently must be run before processing diagnoses."""
         discharge_facilities = [
-            "Healthcare Facility",
-            "Skilled Nursing Facility",
-            "Rehab",
-            "Chronic/Long Term Acute Care",
-            "Other Facility",
+            "HEALTHCARE FACILITY",
+            "SKILLED NURSING FACILITY",
+            "REHAB",
+            "CHRONIC/LONG TERM ACUTE CARE",
+            "OTHER FACILITY",
         ]
 
-        is_diagnosis = (
-            pl.col.code.str.starts_with("Emergency Department Diagnosis//")
-            | pl.col.code.str.starts_with("Hospital Diagnosis//")
-        )
-
-        drg_following_diag = is_diagnosis & ~pl.col.code.str.starts_with("Diagnosis Related Groups//").shift(-1, fill_value=False)
-        drg_following_disch = pl.col.code.str.starts_with("Hospital Discharge//")
+        drg_following_diag = pl.col.code.str.starts_with(
+            "DIAGNOSIS//ICD"
+        ) & ~pl.col.code.str.starts_with("DRG//").shift(-1, fill_value=False)
+        drg_following_disch = pl.col.code.str.starts_with(ST.DISCHARGE)
 
         if "stay_id" in df.columns:
             # This means that it is MIMIC with ED extension, and diagnoses in addition come from
             # ED_OUT and in those situations DRG code should not be added
             drg_following_diag &= pl.col.stay_id.is_null() & ~(
-                is_diagnosis & pl.col.stay_id.is_null()
+                pl.col.code.str.starts_with("DIAGNOSIS//ICD") & pl.col.stay_id.is_null()
             ).shift(-1, fill_value=False)
 
-            drg_following_disch &= pl.col.code.str.starts_with("Hospital Discharge//").shift(
+            drg_following_disch &= pl.col.code.str.starts_with(ST.DISCHARGE).shift(
                 -1, fill_value=True
             ) | pl.col.stay_id.is_not_null().shift(-1, fill_value=True)
         else:
-            drg_following_diag &= ~is_diagnosis.shift(-1, fill_value=False)
-            drg_following_disch &= pl.col.code.str.starts_with("Hospital Discharge//").shift(
+            drg_following_diag &= ~pl.col.code.str.starts_with("DIAGNOSIS//ICD").shift(
+                -1, fill_value=False
+            )
+            drg_following_disch &= pl.col.code.str.starts_with(ST.DISCHARGE).shift(
                 -1, fill_value=True
             )
 
@@ -164,21 +174,21 @@ class InpatientData:
 
         return (
             df.with_columns(
-                text_value=pl.when(pl.col.code.str.starts_with("Hospital Discharge//"))
-                .then(pl.col.code.str.split("//").list[2])
+                text_value=pl.when(pl.col.code.str.starts_with(ST.DISCHARGE))
+                .then(pl.col.code.str.split("//").list[1])
                 .otherwise("text_value")
             )
             .with_columns(
-                code=pl.when(pl.col.code.str.starts_with("Hospital Discharge//"))
+                code=pl.when(pl.col.code.str.starts_with(ST.DISCHARGE))
                 .then(
                     pl.concat_list(
-                        pl.lit("Hospital Discharge//"),
+                        pl.lit(ST.DISCHARGE),
                         (
-                            pl.lit("Discharge Location//")
+                            pl.lit("DISCHARGE_LOCATION//")
                             + pl.when(pl.col("text_value").is_in(discharge_facilities))
-                            .then(pl.lit("Healthcare Facility"))
+                            .then(pl.lit("HEALTHCARE_FACILITY"))
                             .when(pl.col("text_value").is_null())
-                            .then(pl.lit("Unknown"))
+                            .then(pl.lit("UNKNOWN"))
                             .otherwise(pl.col("text_value").replace(" ", "_"))
                         ),
                     )
@@ -188,7 +198,7 @@ class InpatientData:
             )
             .with_columns(
                 code=pl.when("drg_missing")
-                .then(pl.concat_list("code", pl.lit("Diagnosis Related Groups//Unknown")))
+                .then(pl.concat_list("code", pl.lit("DRG//UNKNOWN")))
                 .otherwise("code")
             )
             .drop("drg_missing")
@@ -578,12 +588,12 @@ class BMIData:
 
 class LabData:
     @staticmethod
-    @MatchAndRevise(prefix="Laboratory Result//", apply_vocab=True)
+    @MatchAndRevise(prefix="LAB//", apply_vocab=True)
     def retain_only_test_with_numeric_result(df: pl.DataFrame) -> pl.DataFrame:
         return df.filter(pl.col("numeric_value").is_not_null())
 
     @staticmethod
-    @MatchAndRevise(prefix="Laboratory Result//", needs_counts=True, needs_vocab=True)
+    @MatchAndRevise(prefix="LAB//", needs_counts=True, needs_vocab=True)
     def make_quantiles(
         df: pl.DataFrame,
         counts: dict[str, int] | None = None,

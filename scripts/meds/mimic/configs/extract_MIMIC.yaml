@@ -42,6 +42,10 @@ stage_configs:
       # - "Emergency Department Vital Signs"
       # - "Emergency Department Triage"
       - "Laboratory Result"
+  # filter_by_prefix:
+  #   _script: custom-meds-transform-filter-by-prefix
+  #   prefixes:
+  #     - "
   # clean_code:
   #   _script: custom-meds-transform-clean-code
   #   column: code
@@ -71,6 +75,7 @@ stages:
   - merge_to_MEDS_cohort
   #### Custom transforms ####
   # - create_prefix_column
+
   - filter_null_values
   # - clean_code
   # - calculate_age

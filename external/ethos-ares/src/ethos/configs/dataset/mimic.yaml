@@ -24,66 +24,64 @@ stages:
       # - InpatientData.process_drg_codes # TODO: Filtering to HCFA codes in extract_MIMIC
       - InpatientData.process_hospital_admissions
       - InpatientData.process_hospital_discharges # must be before processing diagnoses
-      # - HCPCSData.unify_names
-  #   vocab: ${vocab}
+      # - HCPCSData.unify_names # Pass through so not needed
+    vocab: ${vocab}
 
-  # - name: CodeCounter
-  #   agg_to: ${output_dir}/${code_counts_fn}
-  #   skip: ${is_not_null:${vocab}}
+  - name: CodeCounter
+    agg_to: ${output_dir}/${code_counts_fn}
+    skip: ${is_not_null:${vocab}}
 
-  # - name: preprocessing_with_counts
-  #   transforms:
-  #     - LabData.make_quantiles
-  #   params:
-  #     counts: ${output_dir}/${code_counts_fn}
-  #   vocab: ${vocab}
+  - name: preprocessing_with_counts
+    transforms:
+      - LabData.make_quantiles
+    params:
+      counts: ${output_dir}/${code_counts_fn}
+    vocab: ${vocab}
 
-  # - name: preprocessing
-  #   transforms:
-  #     - DeathData.place_death_before_dc_if_same_time
-  #     - PatientFluidOutputData.make_quantiles
-  #     - BMIData.make_quantiles
-  #     - EdData.process_ed_registration
-  #     - EdData.process_ed_acuity
-  #     - MeasurementData.process_simple_measurements
-  #     - MeasurementData.process_pain
-  #     - MeasurementData.process_blood_pressure
-  #   vocab: ${vocab}
+  - name: preprocessing
+    transforms:
+      - DeathData.place_death_before_dc_if_same_time
+      # - PatientFluidOutputData.make_quantiles # Not included in MEDS schema
+      - BMIData.make_quantiles
+      - EdData.process_ed_registration
+      - EdData.process_ed_acuity
+      - MeasurementData.process_simple_measurements
+      - MeasurementData.process_pain
+      # - MeasurementData.process_blood_pressure # Treat as simple measurements now systolic and diastolic are processed seperately
+    vocab: ${vocab}
 
-  # - name: preprocessing_with_num_quantiles
-  #   transforms:
-  #     - ICUStayData.process
-  #   params:
-  #     num_quantiles: ${num_quantiles}
-  #   vocab: ${vocab}
+  - name: preprocessing_with_num_quantiles
+    transforms:
+      - ICUStayData.process # No SOFA scores added
+    vocab: ${vocab}
 
-  # - name: Quantizator
-  #   params:
-  #     code_prefixes:
-  #       - LAB//Q//
-  #       - BMI//Q
-  #       - VITAL//Q//
-  #       - SUBJECT_FLUID_OUTPUT//Q//
-  #   agg_to: ${output_dir}/${quantiles_fn}
-  #   agg_params:
-  #     num_quantiles: ${num_quantiles}
-  #   skip: ${is_not_null:${vocab}}
+  - name: Quantizator
+    params:
+      code_prefixes:
+        - EMERGENCY_DEPARTMENT_VITAL_SIGNS//Q//
+        - EMERGENCY_DEPARTMENT_TRIAGE//Q//
+        - OBSERVATION_MEDICAL_RECORD//BMI//Q
+        # - SUBJECT_FLUID_OUTPUT//Q// # Not included in MEDS schema
+    agg_to: ${output_dir}/${quantiles_fn}
+    agg_params:
+      num_quantiles: ${num_quantiles}
+    skip: ${is_not_null:${vocab}}
 
-  # - name: transform_to_quantiles
-  #   params:
-  #     code_quantiles: ${default_if_null:${vocab},${output_dir}}/${quantiles_fn}
+  - name: transform_to_quantiles
+    params:
+      code_quantiles: ${default_if_null:${vocab},${output_dir}}/${quantiles_fn}
 
-  # - name: preprocessing
-  #   transforms:
-  #     - BMIData.join_token_and_quantile
-  #     - DiagnosesData.prepare_codes_for_processing
-  #     - DiagnosesData.convert_icd_9_to_10
-  #     - DiagnosesData.process_icd10
-  #     - ProcedureData.prepare_codes_for_processing
-  #     - ProcedureData.convert_icd_9_to_10
-  #     - ProcedureData.process_icd10
-  #     - MedicationData.convert_to_atc
-  #   vocab: ${vocab}
+  - name: preprocessing
+    transforms:
+      - BMIData.join_token_and_quantile # Not clear why this is needed
+      - DiagnosesData.prepare_codes_for_processing
+      - DiagnosesData.convert_icd_9_to_10
+      - DiagnosesData.process_icd10
+      # - ProcedureData.prepare_codes_for_processing
+      # - ProcedureData.convert_icd_9_to_10
+      # - ProcedureData.process_icd10
+      # - MedicationData.convert_to_atc
+    vocab: ${vocab}
 
   # - name: StaticDataCollector
   #   agg_to: ${output_dir}/static_data.pickle

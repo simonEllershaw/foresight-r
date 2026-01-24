@@ -518,7 +518,7 @@ class TransferData:
 
 class BMIData:
     @staticmethod
-    @MatchAndRevise(prefix="OBSERVATION_MEDICAL_RECORD//BMI")
+    @MatchAndRevise(prefix="OBSERVATION_MEDICAL_RECORD//BMI//")
     def make_quantiles(df: pl.DataFrame) -> pl.DataFrame:
         return (
             df.with_columns(

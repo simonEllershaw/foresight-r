@@ -51,6 +51,7 @@ custom-meds-transform-create-prefix-column = "foresight_r.transforms.create_pref
 custom-meds-transform-calculate-age = "foresight_r.transforms.calculate_age:main"
 custom-meds-transform-add-time-column = "foresight_r.transforms.add_time_column:main"
 custom-meds-transform-filter-null-values = "foresight_r.transforms.filter_null_values:main"
+custom-meds-transform-filter-by-text-value = "foresight_r.transforms.filter_by_text_value:main"
 
 [tool.black]
 line-length = 88

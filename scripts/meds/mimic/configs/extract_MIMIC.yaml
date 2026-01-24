@@ -42,10 +42,14 @@ stage_configs:
       # - "Emergency Department Vital Signs"
       # - "Emergency Department Triage"
       - "Laboratory Result"
-  # filter_by_prefix:
-  #   _script: custom-meds-transform-filter-by-prefix
-  #   prefixes:
-  #     - "
+  filter_by_text_value:
+    _script: custom-meds-transform-filter-by-text-value
+    prefix_to_text_values:
+      HOSPITAL_TRANSFER:
+        - ADMIT
+        - TRANSFER
+      DIAGNOSIS_RELATED_GROUPS:
+        - HCFA
   # clean_code:
   #   _script: custom-meds-transform-clean-code
   #   column: code
@@ -74,9 +78,9 @@ stages:
   - convert_to_sharded_events
   - merge_to_MEDS_cohort
   #### Custom transforms ####
-  # - create_prefix_column
-
   - filter_null_values
+  - filter_by_text_value
+  # - create_prefix_column
   # - clean_code
   # - calculate_age
   # - add_time_column

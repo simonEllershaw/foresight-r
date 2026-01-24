@@ -421,6 +421,7 @@ hosp/transfers:
       - col(eventtype)
       - "TO"
       - col(careunit)
+    text_value: col(eventtype)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
     hadm_id: hadm_id

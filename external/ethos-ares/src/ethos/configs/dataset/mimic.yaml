@@ -21,7 +21,7 @@ stages:
       # - DemographicData.retrieve_demographics_from_hosp_adm # No longer treated as static variables
       - DemographicData.process_race
       - DemographicData.process_marital_status
-      # - InpatientData.process_drg_codes # TODO: Filtering to HCFA codes in extract_MIMIC
+      # - InpatientData.process_drg_codes # Already filtered to HCFA codes in extract_MIMIC
       - InpatientData.process_hospital_admissions
       - InpatientData.process_hospital_discharges # must be before processing diagnoses
       # - HCPCSData.unify_names # Pass through so not needed
@@ -58,8 +58,8 @@ stages:
   - name: Quantizator
     params:
       code_prefixes:
-        - EMERGENCY_DEPARTMENT_VITAL_SIGNS//Q//
-        - EMERGENCY_DEPARTMENT_TRIAGE//Q//
+        - EMERGENCY_DEPARTMENT_VITAL_SIGNS//Q
+        - EMERGENCY_DEPARTMENT_TRIAGE//Q
         - OBSERVATION_MEDICAL_RECORD//BMI//Q
         # - SUBJECT_FLUID_OUTPUT//Q// # Not included in MEDS schema
     agg_to: ${output_dir}/${quantiles_fn}

@@ -18,7 +18,10 @@ from ._sharded_data import ShardedData
 
 class TimelineDataset(th.utils.data.Dataset):
     def __init__(
-        self, input_dir: str | Path, n_positions: int = 2048, is_encoder_decoder: bool = False
+        self,
+        input_dir: str | Path,
+        n_positions: int = 2048,
+        is_encoder_decoder: bool = False,
     ):
         input_dir = Path(input_dir)
         if not input_dir.is_dir():
@@ -56,7 +59,9 @@ class TimelineDataset(th.utils.data.Dataset):
 
     @property
     def patient_offsets(self) -> th.Tensor:
-        return th.cat([shard["patient_offsets"] + shard["offset"] for shard in self._data.shards])
+        return th.cat(
+            [shard["patient_offsets"] + shard["offset"] for shard in self._data.shards]
+        )
 
     @property
     def patient_offset_at_idx(self):
@@ -117,7 +122,9 @@ class TimelineDataset(th.utils.data.Dataset):
             elif len(token["code"]) == 1:
                 static_tokens.append(token["code"][0])
             else:
-                time_idx = self._find_idx_of_last_smaller_or_equal(token["time"], time_at_start)
+                time_idx = self._find_idx_of_last_smaller_or_equal(
+                    token["time"], time_at_start
+                )
                 code = (
                     token["code"][0].split("//")[0] + "//UNKNOWN"
                     if time_idx == -1
@@ -164,7 +171,9 @@ class TimelineDataset(th.utils.data.Dataset):
             df.set_sorted(patient_id_col)
             .group_by(patient_id_col, maintain_order=True)
             .agg(len=pl.len())
-            .select(patient_id_col, offsets=pl.col("len").cum_sum().shift(1, fill_value=0))
+            .select(
+                patient_id_col, offsets=pl.col("len").cum_sum().shift(1, fill_value=0)
+            )
         )
         tensors = {
             "tokens": df["tokens"].to_torch(),
@@ -196,21 +205,28 @@ class TimelineDataset(th.utils.data.Dataset):
         train_size = len(self) - real_test_size - self.timeline_size + 1
         train_dataset = Subset(self, indices=th.arange(train_size))
 
-        test_dataset = Subset(self, indices=th.arange(len(self) - real_test_size, len(self)))
+        test_dataset = Subset(
+            self, indices=th.arange(len(self) - real_test_size, len(self))
+        )
 
         return train_dataset, test_dataset
 
 
 class InferenceDataset(TimelineDataset, abc.ABC):
     # INFERENCE DEFAULT CONSTRAINTS
-    stop_stokens: list[ST] = [ST.DEATH, ST.TIMELINE_END]  # Default inference stop tokens
+    stop_stokens: list[ST] = [
+        ST.DEATH,
+        ST.TIMELINE_END,
+    ]  # Default inference stop tokens
     time_limit: timedelta = timedelta(days=365.25 * 2)  # Inference time constraint
 
     def _get_hadm_id(self, idx: int) -> int | None:
         return None if th.isnan(hadm_id := self.hadm_id[idx]) else int(hadm_id)
 
     def _get_icu_stay_id(self, idx: int) -> int | None:
-        return None if th.isnan(icu_stay_id := self.icu_stay_id[idx]) else int(icu_stay_id)
+        return (
+            None if th.isnan(icu_stay_id := self.icu_stay_id[idx]) else int(icu_stay_id)
+        )
 
     @abc.abstractmethod
     def __len__(self) -> int:

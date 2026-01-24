@@ -14,7 +14,9 @@ T = TypeVar("T", bound="Vocabulary")
 
 
 class Vocabulary:
-    def __init__(self, vocab: Sequence[str] = None, interval_estimates: dict[str, dict] = None):
+    def __init__(
+        self, vocab: Sequence[str] = None, interval_estimates: dict[str, dict] = None
+    ):
         if vocab is None:
             vocab = []
         self.stoi = {word: i for i, word in enumerate(vocab)}
@@ -96,7 +98,9 @@ class Vocabulary:
     @property
     def interval_estimates(self) -> dict[str, dict]:
         if self._interval_estimates is None:
-            raise ValueError("The interval estimates file not found during the initialization.")
+            raise ValueError(
+                "The interval estimates file not found during the initialization."
+            )
         return self._interval_estimates
 
     @property

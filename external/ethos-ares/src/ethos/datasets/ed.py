@@ -59,7 +59,9 @@ class HospitalAdmissionAtTriageDataset(_InferenceAtTriageDataset):
         self.stop_stokens = [ST.ADMISSION] + self.stop_stokens
         adm_indices = self._get_indices_of_stokens(ST.ADMISSION)
         # TODO: Explain why fill with 0. It doesn't make sense but it does the job.
-        self.outcome_indices = self._match(adm_indices, self.ed_reg_indices, fill_unmatched=0)
+        self.outcome_indices = self._match(
+            adm_indices, self.ed_reg_indices, fill_unmatched=0
+        )
 
     def __getitem__(self, idx) -> tuple[th.Tensor, dict]:
         x, y = super().__getitem__(idx)
@@ -128,7 +130,9 @@ class EdReattendenceDataset(InferenceDataset):
 
         self.start_indices = self._move_indices_to_last_same_time(ed_out_indices)
 
-        ed_reg_or_end_indices = self._get_indices_of_stokens([ST.ED_ADMISSION, ST.TIMELINE_END])
+        ed_reg_or_end_indices = self._get_indices_of_stokens(
+            [ST.ED_ADMISSION, ST.TIMELINE_END]
+        )
         self.outcome_indices = self._match(ed_reg_or_end_indices, ed_out_indices)
 
     def __len__(self) -> int:
@@ -139,7 +143,8 @@ class EdReattendenceDataset(InferenceDataset):
         outcome_idx = self.outcome_indices[idx]
 
         return super().__getitem__(start_idx), {
-            "expected": self.vocab.decode(self.tokens[outcome_idx].item()) == ST.ED_ADMISSION,
+            "expected": self.vocab.decode(self.tokens[outcome_idx].item())
+            == ST.ED_ADMISSION,
             "true_token_dist": (outcome_idx - start_idx).item(),
             "true_token_time": (self.times[outcome_idx] - self.times[start_idx]).item(),
             "patient_id": self.patient_id_at_idx[start_idx].item(),

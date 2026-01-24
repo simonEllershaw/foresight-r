@@ -35,7 +35,9 @@ def objective_function(std, points, equal_variance=False):
     # Calculate the True Positive Rate (TPR) and False Positive Rate (FPR)
     tpr_values = 1 - cdf_hypothesis_2
     fpr_values = 1 - cdf_hypothesis_1
-    val = sum(np.min((tpr_values - tpr) ** 2 + (fpr_values - fpr) ** 2) for tpr, fpr in points)
+    val = sum(
+        np.min((tpr_values - tpr) ** 2 + (fpr_values - fpr) ** 2) for tpr, fpr in points
+    )
     return val
 
 
@@ -73,7 +75,9 @@ def compute_fitted_metrics(
             constraints = [std_constraint, std2_constraint]
             x0 = np.array([0.5, 0.5])
 
-        result = minimize(objective_function, x0, args=(points,), constraints=constraints)
+        result = minimize(
+            objective_function, x0, args=(points,), constraints=constraints
+        )
 
         if equal_variance:
             optimal_x = result.x
@@ -114,12 +118,16 @@ def compute_fitted_metrics(
 
         for x, y_values in fpr_dict.items():
             unique_fpr_points.append(x)
-            unique_tpr_points.append(np.mean(y_values))  # Take the mean of Y values for duplicates
+            unique_tpr_points.append(
+                np.mean(y_values)
+            )  # Take the mean of Y values for duplicates
 
         # Generate 10,000 equidistant points in the range of X
         # Note this is not ideal as interpolation point should be equdistanmt in 2D
         fpr_values = np.linspace(
-            np.array(unique_fpr_points).max(), np.array(unique_fpr_points).min(), samples
+            np.array(unique_fpr_points).max(),
+            np.array(unique_fpr_points).min(),
+            samples,
         )
         # Create the interpolation function
         interpolation_function = interp1d(
@@ -129,7 +137,8 @@ def compute_fitted_metrics(
         tpr_values = interpolation_function(fpr_values)
 
     lattice_idx = [
-        np.argmin((tpr_values - tpr) ** 2 + (fpr_values - fpr) ** 2) for tpr, fpr in points
+        np.argmin((tpr_values - tpr) ** 2 + (fpr_values - fpr) ** 2)
+        for tpr, fpr in points
     ]
 
     if operating_point is None:
@@ -146,7 +155,9 @@ def compute_fitted_metrics(
                     2 * tpr_values * (1 - fpr_values) / (tpr_values + (1 - fpr_values))
                 )
             case _:
-                raise ValueError("operating_point_type must be one of: '01', 'Youden', 'maxF1'")
+                raise ValueError(
+                    "operating_point_type must be one of: '01', 'Youden', 'maxF1'"
+                )
 
         # fit interpolation function between y and x points,
         # where y is thresholds and x is lattice_points
@@ -169,7 +180,9 @@ def compute_fitted_metrics(
     denominator = tpr_values * positives + fpr_values * negatives
     recall_values = tpr_values
     more_than_zero = denominator > 0
-    precision_values = np.divide(tpr_values * positives, denominator, where=more_than_zero)
+    precision_values = np.divide(
+        tpr_values * positives, denominator, where=more_than_zero
+    )
     precision_values[~more_than_zero] = 1
     # =======================================================
     # Compute metrics now using the operating point
@@ -275,7 +288,9 @@ def load_results(input_dir: str | Path) -> pl.DataFrame:
 
     parquet_dfs = []
     if parquet_fps := list(input_dir.rglob("*.parquet")):
-        parquet_dfs = [pl.read_parquet(res_path, glob=False) for res_path in parquet_fps]
+        parquet_dfs = [
+            pl.read_parquet(res_path, glob=False) for res_path in parquet_fps
+        ]
 
     # To be removed in the future
     json_dfs = []
@@ -308,16 +323,22 @@ def preprocess_inference_results(
     prev_len = len(df)
     df = df.filter(pl.col("stop_reason").is_in([Reason.GOT_TOKEN, Reason.TIME_LIMIT]))
     if warn_on_dropped and (dropped := prev_len - len(df)):
-        logger.warning(f"Dropped {dropped:,} results due to stop reason: {Reason.KEY_ERROR}.")
+        logger.warning(
+            f"Dropped {dropped:,} results due to stop reason: {Reason.KEY_ERROR}."
+        )
 
     if filter_ambiguous is not None:
         prev_len = len(df)
         df = df.filter(filter_ambiguous)
         if warn_on_dropped and (dropped := prev_len - len(df)):
-            logger.warning(f"Dropped {dropped:,} ({dropped / prev_len:.2%}) ambiguous results.")
+            logger.warning(
+                f"Dropped {dropped:,} ({dropped / prev_len:.2%}) ambiguous results."
+            )
 
     optional_columns = [
-        col for col in ("prediction_time", "icu_stay_id", "hadm_id", "stay_id") if col in df.columns
+        col
+        for col in ("prediction_time", "icu_stay_id", "hadm_id", "stay_id")
+        if col in df.columns
     ]
     aggregations = [
         ("expected", "first"),
@@ -328,7 +349,11 @@ def preprocess_inference_results(
         ("token_time", "mean"),
         *[
             (col_name, "first")
-            for col_name in ["patient_id", *optional_columns, *(additional_columns or [])]
+            for col_name in [
+                "patient_id",
+                *optional_columns,
+                *(additional_columns or []),
+            ]
         ],
     ]
     max_rep_num_expr = pl.min_horizontal(max_rep_num, pl.len())
@@ -374,7 +399,9 @@ def plot_calibration_curve(y_true, y_pred, n_bins: int = 10):
     Returns:
     None
     """
-    prob_true, prob_pred = calibration_curve(y_true, y_pred, n_bins=n_bins, strategy="uniform")
+    prob_true, prob_pred = calibration_curve(
+        y_true, y_pred, n_bins=n_bins, strategy="uniform"
+    )
 
     # Plot calibration curve
     plt.figure(figsize=(8, 8))
@@ -397,9 +424,13 @@ def get_auc_vs_fraction(
 ) -> pl.DataFrame:
     """Computes the AUC for different fractions of the data."""
     res = []
-    for frac in np.logspace(np.log10(frac_start), np.log10(frac_end), num=num_fractions):
+    for frac in np.logspace(
+        np.log10(frac_start), np.log10(frac_end), num=num_fractions
+    ):
         scores = [
-            compute_fitted_metrics(*df.sample(fraction=frac, seed=i)["expected", "actual"])["auc"]
+            compute_fitted_metrics(
+                *df.sample(fraction=frac, seed=i)["expected", "actual"]
+            )["auc"]
             for i in range(num_fit_reps)
         ]
         res.append(

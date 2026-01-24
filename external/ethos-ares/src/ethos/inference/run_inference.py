@@ -12,7 +12,12 @@ from tqdm import tqdm
 
 from .constants import Task
 from .inference import get_dataset_cls, spawn_inference_worker
-from .utils import evaluate_dataset_subset, format_big_number, producer, write_results_to_parquet
+from .utils import (
+    evaluate_dataset_subset,
+    format_big_number,
+    producer,
+    write_results_to_parquet,
+)
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="inference")
@@ -20,7 +25,9 @@ def main(cfg: DictConfig):
     task = Task(cfg.task)
     input_dir = Path(cfg.input_dir)
 
-    model_checkpoint = th.load(cfg.model_fp, map_location="cpu", mmap=True, weights_only=False)
+    model_checkpoint = th.load(
+        cfg.model_fp, map_location="cpu", mmap=True, weights_only=False
+    )
 
     model_config = model_checkpoint["model_config"]
     n_positions = (
@@ -87,7 +94,11 @@ def main(cfg: DictConfig):
         job_queue = mgr.Queue(maxsize=num_proc * 2)
         progress_queue = mgr.Queue()
 
-        processes = [Process(target=producer, args=(subsets, job_queue, num_proc), name="producer")]
+        processes = [
+            Process(
+                target=producer, args=(subsets, job_queue, num_proc), name="producer"
+            )
+        ]
         processes.extend(
             Process(
                 target=spawn_inference_worker,
@@ -113,7 +124,9 @@ def main(cfg: DictConfig):
 
         results, generated_tokens = [], 0
         total_samples = n_samples * cfg.rep_num
-        progress_bar = tqdm(total=total_samples, desc="Progress", unit="samples", smoothing=0.1)
+        progress_bar = tqdm(
+            total=total_samples, desc="Progress", unit="samples", smoothing=0.1
+        )
         try:
             for _ in range(total_samples):
                 results.append(progress_queue.get(timeout=cfg.timeout))
@@ -121,13 +134,17 @@ def main(cfg: DictConfig):
                 progress_bar.set_postfix_str(
                     "total generated tokens: {}, {} tokens/s".format(
                         format_big_number(generated_tokens),
-                        format_big_number(generated_tokens / progress_bar.format_dict["elapsed"]),
+                        format_big_number(
+                            generated_tokens / progress_bar.format_dict["elapsed"]
+                        ),
                     )
                 )
                 progress_bar.update()
 
                 if len(results) >= cfg.result_chunk_size:
-                    write_results_to_parquet(result_dir, results, progress_bar.format_dict["n"])
+                    write_results_to_parquet(
+                        result_dir, results, progress_bar.format_dict["n"]
+                    )
                     results = []
 
         except Empty:

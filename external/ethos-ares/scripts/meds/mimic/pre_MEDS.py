@@ -175,12 +175,20 @@ def add_time_by_id(
     return df.join(time_source_df, on=on, how="left")
 
 
-add_discharge_time_by_hadm_id = partial(add_time_by_id, on="hadm_id", time_column_name="dischtime")
-add_out_time_by_stay_id = partial(add_time_by_id, on="stay_id", time_column_name="outtime")
-add_reg_time_by_stay_id = partial(add_time_by_id, on="stay_id", time_column_name="intime")
+add_discharge_time_by_hadm_id = partial(
+    add_time_by_id, on="hadm_id", time_column_name="dischtime"
+)
+add_out_time_by_stay_id = partial(
+    add_time_by_id, on="stay_id", time_column_name="outtime"
+)
+add_reg_time_by_stay_id = partial(
+    add_time_by_id, on="stay_id", time_column_name="intime"
+)
 
 
-def fix_static_data(raw_static_df: pl.LazyFrame, death_times_df: pl.LazyFrame) -> pl.LazyFrame:
+def fix_static_data(
+    raw_static_df: pl.LazyFrame, death_times_df: pl.LazyFrame
+) -> pl.LazyFrame:
     """Fixes the static data by adding the death time to the static data and fixes the DOB nonsense.
 
     Args:
@@ -191,7 +199,9 @@ def fix_static_data(raw_static_df: pl.LazyFrame, death_times_df: pl.LazyFrame) -
         The fixed static data.
     """
 
-    death_times_df = death_times_df.group_by("subject_id").agg(pl.col("deathtime").min())
+    death_times_df = death_times_df.group_by("subject_id").agg(
+        pl.col("deathtime").min()
+    )
 
     return raw_static_df.join(death_times_df, on="subject_id", how="left").select(
         "subject_id",
@@ -206,8 +216,14 @@ FUNCTIONS = {
         add_discharge_time_by_hadm_id,
         ("hosp/admissions", ["hadm_id", "dischtime"]),
     ),
-    "hosp/drgcodes": (add_discharge_time_by_hadm_id, ("hosp/admissions", ["hadm_id", "dischtime"])),
-    "hosp/patients": (fix_static_data, ("hosp/admissions", ["subject_id", "deathtime"])),
+    "hosp/drgcodes": (
+        add_discharge_time_by_hadm_id,
+        ("hosp/admissions", ["hadm_id", "dischtime"]),
+    ),
+    "hosp/patients": (
+        fix_static_data,
+        ("hosp/admissions", ["subject_id", "deathtime"]),
+    ),
     "ed/diagnosis": (add_out_time_by_stay_id, ("ed/edstays", ["stay_id", "outtime"])),
     "ed/triage": (add_reg_time_by_stay_id, ("ed/edstays", ["stay_id", "intime"])),
 }
@@ -312,7 +328,9 @@ def main(cfg: DictConfig):
 
         st = datetime.now()
 
-        logger.info(f"Loading {str(df_to_load_fp.resolve())} for manipulating other dataframes...")
+        logger.info(
+            f"Loading {str(df_to_load_fp.resolve())} for manipulating other dataframes..."
+        )
         if df_to_load_fp.suffix in [".csv.gz"]:
             df = df_to_load_read_fn(df_to_load_fp, columns=cols)
         else:
@@ -353,15 +371,20 @@ def main(cfg: DictConfig):
             read_fn(fp)
             .collect()
             .with_columns(
-                fn(pl.col("icd_version").cast(pl.String), pl.col("icd_code").cast(pl.String)).alias(
-                    "norm_icd_code"
-                )
+                fn(
+                    pl.col("icd_version").cast(pl.String),
+                    pl.col("icd_code").cast(pl.String),
+                ).alias("norm_icd_code")
             )
         )
         processed_df.write_parquet(out_fp, use_pyarrow=True)
-        logger.info(f"  Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - st}")
+        logger.info(
+            f"  Processed and wrote to {str(out_fp.resolve())} in {datetime.now() - st}"
+        )
 
-    logger.info(f"Done! All dataframes processed and written to {str(MEDS_input_dir.resolve())}")
+    logger.info(
+        f"Done! All dataframes processed and written to {str(MEDS_input_dir.resolve())}"
+    )
     done_fp.write_text(f"Finished at {datetime.now()}")
 
 

@@ -29,24 +29,31 @@ class Quantizator(ScanAndAggregate):
         for i, rdf in enumerate(dfs[1:], 1):
             df = df.join(rdf, on="code", how="full", coalesce=True, join_nulls=True)
         df = df.with_columns(
-            pl.concat_list(pl.col("^numeric_value/.*$").fill_null([])).alias("numeric_value")
+            pl.concat_list(pl.col("^numeric_value/.*$").fill_null([])).alias(
+                "numeric_value"
+            )
         )
 
         quantiles = np.linspace(0, 1, num_quantiles + 1)[1:-1]
         quantile_df = df.select(
             "code",
             pl.concat_list(
-                pl.col("numeric_value").list.eval(pl.col("").quantile(q)) for q in quantiles
+                pl.col("numeric_value").list.eval(pl.col("").quantile(q))
+                for q in quantiles
             )
             .list.unique()
             .alias("quantiles"),
         ).collect()
-        quantile_dict = dict(zip(quantile_df["code"], quantile_df["quantiles"].to_list()))
+        quantile_dict = dict(
+            zip(quantile_df["code"], quantile_df["quantiles"].to_list())
+        )
         with Path(out_fp).open("w") as f:
             json.dump(quantile_dict, f)
 
 
-def transform_to_quantiles(df: pl.DataFrame, *, code_quantiles: str | Path | dict) -> pl.DataFrame:
+def transform_to_quantiles(
+    df: pl.DataFrame, *, code_quantiles: str | Path | dict
+) -> pl.DataFrame:
     """Transform numeric values in the DataFrame to quantiles based on provided code quantiles.
 
     Examples
@@ -106,7 +113,9 @@ def transform_to_quantiles(df: pl.DataFrame, *, code_quantiles: str | Path | dic
     return (
         df.with_columns(
             pl.col("code")
-            .replace_strict(code_quantiles, default=None, return_dtype=pl.List(pl.Float64))
+            .replace_strict(
+                code_quantiles, default=None, return_dtype=pl.List(pl.Float64)
+            )
             .list.to_struct(fields=tmp_cols)
             .struct.unnest()
         )

@@ -26,7 +26,9 @@ def spawn_inference_worker(
     if "cuda" in device:
         th.cuda.set_device(device)
         th.set_float32_matmul_precision("high")
-    autocast_context = setup_torch(device, dtype="bfloat16" if "cuda" in device else "float32")
+    autocast_context = setup_torch(
+        device, dtype="bfloat16" if "cuda" in device else "float32"
+    )
 
     model, _ = load_model_checkpoint(model_fp, map_location=device)
     model.to(device)
@@ -69,7 +71,11 @@ def spawn_inference_worker(
             else:
                 with autocast_context:
                     next_token, probs = get_next_token(
-                        model, timeline, ctx=ctx, return_probs=True, temperature=temperature
+                        model,
+                        timeline,
+                        ctx=ctx,
+                        return_probs=True,
+                        temperature=temperature,
                     )
 
             if generated_tokens is not None:
@@ -93,7 +99,9 @@ def spawn_inference_worker(
             new_token = next_token.cpu().view(-1)
             gen_times += get_token_time(new_token, vocab)
 
-            completed_this_iter = th.isin(new_token, stop_tokens) | (gen_times > time_limit)
+            completed_this_iter = th.isin(new_token, stop_tokens) | (
+                gen_times > time_limit
+            )
 
             if (task == Task.DRG_PREDICTION) or (
                 task == Task.SOFA_PREDICTION and gen_token_num == 3
@@ -135,7 +143,9 @@ def spawn_inference_worker(
                 }
 
                 if generated_tokens is not None:
-                    results["generated_tokens"] = [tokens[i].item() for tokens in generated_tokens]
+                    results["generated_tokens"] = [
+                        tokens[i].item() for tokens in generated_tokens
+                    ]
 
                 progress_queue.put(results)
 
@@ -146,4 +156,6 @@ def spawn_inference_worker(
             timeline = timeline[not_completed_mask, :]
             gen_times = gen_times[not_completed_mask]
             if generated_tokens is not None:
-                generated_tokens = [tokens[not_completed_mask, :] for tokens in generated_tokens]
+                generated_tokens = [
+                    tokens[not_completed_mask, :] for tokens in generated_tokens
+                ]

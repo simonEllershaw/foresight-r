@@ -39,7 +39,9 @@ def run_stage(
             out_fp,
             functools.partial(pl.read_parquet, use_pyarrow=True),
             lambda df, out_: df.write_parquet(out_, use_pyarrow=True),
-            compute_fn=lambda df: functools.reduce(lambda df, fn: fn(df), transforms_to_run, df),
+            compute_fn=lambda df: functools.reduce(
+                lambda df, fn: fn(df), transforms_to_run, df
+            ),
         )
 
     if agg_to is not None:

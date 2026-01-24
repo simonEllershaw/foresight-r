@@ -347,7 +347,8 @@ hosp/omr:
     code:
       - "OBSERVATION_MEDICAL_RECORD"
       - col(result_name)
-    text_value: col(result_value)
+    # Pre-MEDS transforms this to numeric so can be used for structured quantiles matching vital signs
+    numeric_value: col(result_num)
     time: col(chartdate)
     # Set to EOD in pre-MEDS so already in Datetime format
     # time_format: "%Y-%m-%d %H:%M:%S"

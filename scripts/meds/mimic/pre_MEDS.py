@@ -273,10 +273,10 @@ def process_ed_diagnosis_df(
 
 def _round_to_3sf(expr: pl.Expr) -> pl.Expr:
     """Round a numeric expression to 3 significant figures as float."""
-    # Use native Polars operations for better performance
     log_val = expr.abs().log10()
-    scale = (2 - log_val.floor()).cast(pl.Int32)
-    return (expr * (10**scale)).round(0) / (10**scale)
+    scale = 2 - log_val.floor()
+    factor = pl.lit(10.0) ** scale  # Use float base to handle negative exponents
+    return (expr * factor).round(0) / factor
 
 
 def _convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -338,6 +338,64 @@ def fix_static_data(
     )
 
 
+def process_omr_df(omr_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Extract numeric blood pressure, weight, height and BMI data, splitting blood pressure into systolic/diastolic rows."""
+    output_cols = ["subject_id", "chartdate", "seq_num", "result_name", "result_num"]
+
+    # Blood pressure: split on "/" and unpivot into separate rows
+    bp_df = (
+        omr_df.filter(
+            pl.col("result_name").str.contains("Blood Pressure", literal=True)
+            & pl.col("result_value").str.contains("/", literal=True)
+        )
+        .with_columns(pl.col("result_value").str.split("/").alias("bp_parts"))
+        .filter(pl.col("bp_parts").list.len() == 2)
+        .with_columns(
+            pl.col("bp_parts")
+            .list.get(0)
+            .cast(pl.Float64, strict=False)
+            .alias("SYSTOLIC_BLOOD_PRESSURE_MMHG"),
+            pl.col("bp_parts")
+            .list.get(1)
+            .cast(pl.Float64, strict=False)
+            .alias("DIASTOLIC_BLOOD_PRESSURE_MMHG"),
+        )
+        .unpivot(
+            index=["subject_id", "chartdate", "seq_num"],
+            on=["SYSTOLIC_BLOOD_PRESSURE_MMHG", "DIASTOLIC_BLOOD_PRESSURE_MMHG"],
+            variable_name="result_name",
+            value_name="result_num",
+        )
+        .filter(pl.col("result_num").is_not_null())
+        .select(output_cols)
+    )
+
+    # Non-BP rows: cast to float and clean up result_name
+    non_bp_df = (
+        omr_df.filter(
+            pl.col("result_name").is_in(
+                ["BMI (kg/m2)", "Height (Inches)", "Weight (Lbs)"]
+            )
+        )
+        .with_columns(
+            pl.col("result_value").cast(pl.Float64, strict=False).alias("result_num"),
+            pl.col("result_name").str.replace_all(r"[()]", ""),
+        )
+        .filter(pl.col("result_num").is_not_null())
+        .select(output_cols)
+    )
+
+    return (
+        pl.concat([bp_df, non_bp_df])
+        .pipe(convert_date_to_end_of_day_timestamp)
+        .with_columns(
+            rounded=pl.when(pl.col("result_num") == 0)
+            .then(0.0)
+            .otherwise(_round_to_3sf(pl.col("result_num")))
+        )
+    )
+
+
 # Processing functions registry for MIMIC-IV data files.
 # Format: {
 #     "relative/path/to/file": (
@@ -386,7 +444,7 @@ FUNCTIONS = {
         process_hcpcs_events_df,
         [("hosp/d_hcpcs", ["code", "long_description", "short_description"])],
     ),
-    "hosp/omr": (convert_date_to_end_of_day_timestamp, None),
+    "hosp/omr": (process_omr_df, None),
     "ed/diagnosis": (process_ed_diagnosis_df, [("ed/edstays", ["stay_id", "outtime"])]),
     "ed/triage": (
         process_ed_vitals_with_time_df,

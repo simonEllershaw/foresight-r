@@ -11,9 +11,7 @@ class ShardedData:
     def __init__(self, data_fp: str | Path):
         shard_fps = sorted(data_fp.glob("[0-9]*.safetensors"))
         if not shard_fps:
-            raise FileNotFoundError(
-                f"No files matching '[0-9]*.safetensors' found in: {data_fp}"
-            )
+            raise FileNotFoundError(f"No files matching '[0-9]*.safetensors' found in: {data_fp}")
 
         self.shards = []
         shard_offset = 0
@@ -45,9 +43,7 @@ class ShardedData:
     @property
     def patient_id_at_idx(self) -> "LookupData":
         def func(shard, shard_idx):
-            pt_idx = (
-                th.searchsorted(shard["patient_offsets"], shard_idx, right=True) - 1
-            )
+            pt_idx = th.searchsorted(shard["patient_offsets"], shard_idx, right=True) - 1
             return shard["patient_ids"][pt_idx]
 
         return LookupData("patient_ids", self.shards, access_func=func)
@@ -55,9 +51,7 @@ class ShardedData:
     @property
     def patient_offset_at_idx(self) -> "LookupData":
         def func(shard, shard_idx):
-            pt_idx = (
-                th.searchsorted(shard["patient_offsets"], shard_idx, right=True) - 1
-            )
+            pt_idx = th.searchsorted(shard["patient_offsets"], shard_idx, right=True) - 1
             return shard["offset"] + shard["patient_offsets"][pt_idx]
 
         return LookupData("patient_offsets", self.shards, access_func=func)
@@ -94,9 +88,7 @@ class _DataBase(abc.ABC):
         self.shards = shards
 
     def _get_shard_no_and_idx(self, g_idx: int) -> tuple[th.Tensor, th.Tensor]:
-        shard_no = (
-            bisect_right(self.shards, g_idx, key=lambda shard: shard["offset"]) - 1
-        )
+        shard_no = bisect_right(self.shards, g_idx, key=lambda shard: shard["offset"]) - 1
         return shard_no, g_idx - self.shards[shard_no]["offset"]
 
 
@@ -107,9 +99,7 @@ class SliceableData(_DataBase):
             if step != 1:
                 raise ValueError(f"Step is not supported, got: {step} != 1")
             requested_length = stop - start
-        elif isinstance(idx, Iterable) and not (
-            isinstance(idx, th.Tensor) and idx.ndim == 0
-        ):
+        elif isinstance(idx, Iterable) and not (isinstance(idx, th.Tensor) and idx.ndim == 0):
             raise NotImplementedError("Indexing with an iterable is not implemented")
         else:
             start = idx
@@ -151,9 +141,7 @@ class LookupData(_DataBase):
         return sum(len(shard[self.data_name]) for shard in self.shards)
 
     def __getitem__(self, idx: int | Iterable[int]) -> th.Tensor:
-        if isinstance(idx, Iterable) and not (
-            isinstance(idx, th.Tensor) and idx.ndim == 0
-        ):
+        if isinstance(idx, Iterable) and not (isinstance(idx, th.Tensor) and idx.ndim == 0):
             return th.stack([self.access_func(i) for i in idx])
         return self.access_func(idx)
 

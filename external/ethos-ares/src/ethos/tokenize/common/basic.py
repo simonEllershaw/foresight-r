@@ -20,9 +20,7 @@ def filter_codes(
     return df.filter(~expr)
 
 
-def apply_vocab(
-    df: pl.DataFrame, *, vocab: str | list[str] | None = None
-) -> pl.DataFrame:
+def apply_vocab(df: pl.DataFrame, *, vocab: str | list[str] | None = None) -> pl.DataFrame:
     if vocab is None:
         return df
     elif isinstance(vocab, str):
@@ -39,9 +37,9 @@ class CodeCounter(ScanAndAggregate):
         dfs = [pl.scan_parquet(fp) for fp in in_fps]
         df = dfs[0]
         for rdf in dfs[1:]:
-            df = df.join(
-                rdf, on="code", how="full", coalesce=True, join_nulls=True
-            ).select("code", pl.sum_horizontal(pl.exclude("code")))
+            df = df.join(rdf, on="code", how="full", coalesce=True, join_nulls=True).select(
+                "code", pl.sum_horizontal(pl.exclude("code"))
+            )
         df.sort("count", descending=True).collect().write_csv(out_fp)
 
 
@@ -49,9 +47,7 @@ class CodeCounter(ScanAndAggregate):
 class StaticDataCollector(ScanAndAggregate):
     patient_id_col = MatchAndRevise.sort_cols[0]
 
-    def __call__(
-        self, df: pl.DataFrame, *, static_code_prefixes: list[str]
-    ) -> pl.DataFrame:
+    def __call__(self, df: pl.DataFrame, *, static_code_prefixes: list[str]) -> pl.DataFrame:
         df = (
             df.select(self.patient_id_col, "code", pl.col("time").cast(pl.Int64))
             .filter(create_prefix_or_chain(static_code_prefixes))

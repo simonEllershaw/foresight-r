@@ -13,11 +13,7 @@ class DeathData:
         gb_cols = MatchAndRevise.sort_cols
         idx_col = MatchAndRevise.index_col
         return (
-            df.sort(
-                pl.col("code").replace_strict(
-                    ST.DEATH, 0, default=1, return_dtype=pl.UInt8
-                )
-            )
+            df.sort(pl.col("code").replace_strict(ST.DEATH, 0, default=1, return_dtype=pl.UInt8))
             .group_by(gb_cols, maintain_order=True)
             .agg(pl.col(idx_col).last(), pl.exclude(gb_cols, idx_col))
             .explode(pl.exclude(gb_cols, idx_col))
@@ -32,45 +28,52 @@ class DemographicData:
     def retrieve_demographics_from_hosp_adm(df: pl.DataFrame) -> pl.DataFrame:
         return df.with_columns(
             code=pl.concat_list("code", pl.lit("MARITAL_STATUS"), pl.lit("RACE")),
-            text_value=pl.concat_list(
-                "text_value", pl.col("marital_status"), pl.col("race")
-            ),
+            text_value=pl.concat_list("text_value", pl.col("marital_status"), pl.col("race")),
         ).explode("code", "text_value")
 
     @staticmethod
-    @MatchAndRevise(prefix="Hospital Admission//Race", apply_vocab=True)
+    @MatchAndRevise(prefix="RACE", apply_vocab=True)
     def process_race(df: pl.DataFrame) -> pl.DataFrame:
-        race_unknown = ["Unknown", "Unable To Obtain", "Patient Declined To Answer"]
+        race_unknown = ["UNKNOWN", "UNABLE TO OBTAIN", "PATIENT DECLINED TO ANSWER"]
         race_minor = [
-            "Native Hawaiian Or Other Pacific Islander",
-            "American Indian/Alaska Native",
-            "Multiple Race/Ethnicity",
+            "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER",
+            "AMERICAN INDIAN/ALASKA NATIVE",
+            "MULTIPLE RACE/ETHNICITY",
         ]
+        # every patient can have only one race assigned, so we can prioritize which one to keep
+        race_priority_mapping = {"RACE//OTHER": 1, "RACE//UNKNOWN": 2}  # every other will get 0
         return (
             df.with_columns(
                 code=pl.when(pl.col("text_value").is_in(race_unknown))
-                .then(pl.lit("Unknown"))
+                .then(pl.lit("UNKNOWN"))
                 .when(pl.col("text_value").is_in(race_minor))
-                .then(pl.lit("Other"))
-                .when(pl.col("text_value") == "South American")
-                .then(pl.lit("Hispanic"))
-                .when(pl.col("text_value") == "Portuguese")
-                .then(pl.lit("White"))
+                .then(pl.lit("OTHER"))
+                .when(pl.col("text_value") == "SOUTH AMERICAN")
+                .then(pl.lit("HISPANIC"))
+                .when(pl.col("text_value") == "PORTUGUESE")
+                .then(pl.lit("WHITE"))
                 .when(pl.col("text_value").str.contains_any(["/", " "]))
                 .then(pl.lit(None))
                 .otherwise("text_value")
             )
             .with_columns(
                 code=(
-                    pl.lit("Hospital Admission//Race//")
+                    pl.lit("RACE//")
                     + pl.when(pl.col("code").is_null())
-                    .then(
-                        pl.col("text_value").str.slice(
-                            0, pl.col("text_value").str.find("/| ")
-                        )
-                    )
+                    .then(pl.col("text_value").str.slice(0, pl.col("text_value").str.find("/| ")))
                     .otherwise("code")
                 )
+            )
+            .group_by(MatchAndRevise.sort_cols[0], maintain_order=True)
+            .agg(
+                pl.col("code")
+                .sort_by(
+                    pl.col.code.replace_strict(
+                        race_priority_mapping, default=0, return_dtype=pl.UInt8
+                    )
+                )
+                .first(),
+                pl.exclude("code").first(),
             )
             .select(df.columns)
         )
@@ -88,8 +91,7 @@ class InpatientData:
     @MatchAndRevise(prefix="DRG", apply_vocab=True)
     def process_drg_codes(df: pl.DataFrame) -> pl.DataFrame:
         return df.filter(pl.col.code.str.starts_with("DRG//HCFA")).with_columns(
-            code=pl.lit("DRG//")
-            + pl.col.code.str.split("//").list[2].cast(int).cast(str)
+            code=pl.lit("DRG//") + pl.col.code.str.split("//").list[2].cast(int).cast(str)
         )
 
     @staticmethod
@@ -192,16 +194,13 @@ class InpatientData:
 
 class MeasurementData:
     @staticmethod
-    @MatchAndRevise(
-        prefix=["TEMPERATURE", "HEART_RATE", "RESPIRATORY_RATE", "O2_SATURATION"]
-    )
+    @MatchAndRevise(prefix=["TEMPERATURE", "HEART_RATE", "RESPIRATORY_RATE", "O2_SATURATION"])
     def process_simple_measurements(df: pl.DataFrame) -> pl.DataFrame:
         return (
             df.filter(pl.col("numeric_value").is_not_null())
             .with_columns(
                 code=pl.concat_list(
-                    pl.lit("VITAL//") + pl.col("code"),
-                    pl.lit("VITAL//Q//") + pl.col("code"),
+                    pl.lit("VITAL//") + pl.col("code"), pl.lit("VITAL//Q//") + pl.col("code")
                 )
             )
             .explode("code")
@@ -221,8 +220,7 @@ class MeasurementData:
             .with_columns(
                 numeric_value=pl.when(pl.col.text_value.str.contains("-", literal=True))
                 .then(
-                    pl.col.text_value.str.split("-").list.first().str.strip_chars()
-                    + pl.lit(".5")
+                    pl.col.text_value.str.split("-").list.first().str.strip_chars() + pl.lit(".5")
                 )
                 .when(pl.col.text_value.str.contains("crit|moaning"))
                 .then(pl.lit("10"))
@@ -238,18 +236,14 @@ class MeasurementData:
                 .then(pl.lit("2"))
                 .when(
                     pl.col.text_value.str.contains(r"s[lep]{3,4}|sedat|n\/a|resting")
-                    | pl.col.text_value.is_in(
-                        ["no", "no pain", "ok", "none", "comfortable"]
-                    )
+                    | pl.col.text_value.is_in(["no", "no pain", "ok", "none", "comfortable"])
                 )
                 .then(pl.lit("0"))
                 .otherwise(pl.col("text_value").str.replace_all(r"\D", ""))
                 .cast(float, strict=False)
             )
             .filter(pl.col.numeric_value.is_between(0, 10))
-            .with_columns(
-                code=pl.concat_list(pl.lit("VITAL//PAIN"), pl.lit("VITAL//Q//PAIN"))
-            )
+            .with_columns(code=pl.concat_list(pl.lit("VITAL//PAIN"), pl.lit("VITAL//Q//PAIN")))
             .explode("code")
         )
 
@@ -258,8 +252,9 @@ class MeasurementData:
     def process_blood_pressure(bp_df: pl.DataFrame) -> pl.DataFrame:
         return (
             bp_df.with_columns(
-                code=pl.when(pl.col.numeric_value.is_null())
-                .then(pl.col("text_value").str.split_exact("/", 1))
+                code=pl.when(pl.col.numeric_value.is_null()).then(
+                    pl.col("text_value").str.split_exact("/", 1)
+                )
                 # Hacky way to get the systolic and diastolic that come from ED extension
                 .otherwise(
                     pl.struct(
@@ -292,8 +287,7 @@ class DiagnosesData:
     @MatchAndRevise(prefix="DIAGNOSIS//ICD//")
     def prepare_codes_for_processing(df: pl.DataFrame) -> pl.DataFrame:
         return df.with_columns(pl.col.code.str.split_exact("//", 3)).with_columns(
-            code=pl.lit("ICD//CM//") + pl.col.code.struct[2],
-            text_value=pl.col.code.struct[3],
+            code=pl.lit("ICD//CM//") + pl.col.code.struct[2], text_value=pl.col.code.struct[3]
         )
 
     @staticmethod
@@ -311,9 +305,7 @@ class DiagnosesData:
 
     @staticmethod
     @MatchAndRevise(prefix="ICD//CM//10", needs_vocab=True)
-    def process_icd10(
-        icd10_df: pl.DataFrame, vocab: list[str] | None = None
-    ) -> pl.DataFrame:
+    def process_icd10(icd10_df: pl.DataFrame, vocab: list[str] | None = None) -> pl.DataFrame:
         from ..mappings import get_icd_cm_code_to_name_mapping
 
         code_to_name = get_icd_cm_code_to_name_mapping()
@@ -326,9 +318,7 @@ class DiagnosesData:
                 pl.col("text_value").str.slice(*code_slice).alias(col)
                 for col, code_slice in zip(temp_cols, code_slices)
             )
-            .with_columns(
-                pl.col(temp_cols[0]).replace_strict(code_to_name, default=None)
-            )
+            .with_columns(pl.col(temp_cols[0]).replace_strict(code_to_name, default=None))
             .with_columns(
                 pl.when(pl.col(col) != "")
                 .then(pl.lit(f"ICD//CM//{prefix}") + pl.col(col))
@@ -357,8 +347,7 @@ class ProcedureData:
             df.with_columns(pl.col.code.str.split("//"))
             .filter(pl.col.code.list[1] == "ICD")
             .with_columns(
-                code=pl.lit("ICD//PCS//") + pl.col.code.list[2],
-                text_value=pl.col.code.list[3],
+                code=pl.lit("ICD//PCS//") + pl.col.code.list[2], text_value=pl.col.code.list[3]
             )
         )
 
@@ -377,9 +366,7 @@ class ProcedureData:
 
     @staticmethod
     @MatchAndRevise(prefix="ICD//PCS//10", needs_vocab=True)
-    def process_icd10(
-        icd10_df: pl.DataFrame, vocab: list[str] | None = None
-    ) -> pl.DataFrame:
+    def process_icd10(icd10_df: pl.DataFrame, vocab: list[str] | None = None) -> pl.DataFrame:
         df = icd10_df.with_columns(
             pl.col("text_value").str.split_exact("", 6).alias("code")
         ).with_columns(
@@ -392,18 +379,14 @@ class ProcedureData:
         )
         if vocab is not None:
             # all characters have to be in the vocab to keep the code
-            df = df.filter(
-                pl.col("code").list.eval(pl.element().is_in(vocab)).list.all()
-            )
+            df = df.filter(pl.col("code").list.eval(pl.element().is_in(vocab)).list.all())
         return df.explode("code").drop_nulls("code")
 
 
 class MedicationData:
     @staticmethod
     @MatchAndRevise(prefix="MEDICATION", needs_vocab=True)
-    def convert_to_atc(
-        df: pl.DataFrame, vocab: list[str] | None = None
-    ) -> pl.DataFrame:
+    def convert_to_atc(df: pl.DataFrame, vocab: list[str] | None = None) -> pl.DataFrame:
         from ..mappings import get_atc_code_to_desc, get_mimic_drug_name_to_atc_mapping
 
         drug_to_atc = get_mimic_drug_name_to_atc_mapping()
@@ -431,16 +414,12 @@ class MedicationData:
                 pl.col("text_value")
                 .str.strip_chars(" ")
                 .str.to_lowercase()
-                .replace_strict(
-                    drug_to_atc, default=None, return_dtype=pl.List(pl.String)
-                )
+                .replace_strict(drug_to_atc, default=None, return_dtype=pl.List(pl.String))
             )
             .with_columns(
                 pl.concat_list(
                     "code",
-                    pl.lit(None)
-                    .cast(str)
-                    .repeat_by(pl.col("text_value").list.len().cast(int) - 1),
+                    pl.lit(None).cast(str).repeat_by(pl.col("text_value").list.len().cast(int) - 1),
                 ).alias("code")
             )
             .drop_nulls("text_value")
@@ -455,8 +434,7 @@ class MedicationData:
                     pl.lit(pfx)
                     + pl.col(col)
                     + (
-                        pl.lit("//")
-                        + pl.col(col).replace_strict(code_to_desc, default=None)
+                        pl.lit("//") + pl.col(col).replace_strict(code_to_desc, default=None)
                         if pfx == code_prefixes[0]
                         else pl.lit("")
                     )
@@ -484,10 +462,7 @@ class ICUStayData:
         from ..mappings import get_stay_id_to_sofa_mapping
 
         stay_id_to_sofa = get_stay_id_to_sofa_mapping()
-        min_value, max_value = (
-            min(stay_id_to_sofa.values()),
-            max(stay_id_to_sofa.values()),
-        )
+        min_value, max_value = min(stay_id_to_sofa.values()), max(stay_id_to_sofa.values())
         bins = np.linspace(min_value, max_value, num_quantiles + 1)
         values = [
             np.arange(np.ceil(left), np.floor(right) + 1)
@@ -500,17 +475,14 @@ class ICUStayData:
         }
 
         stay_id_to_sofa = {
-            stay_id: value_to_quantile[sofa]
-            for stay_id, sofa in stay_id_to_sofa.items()
+            stay_id: value_to_quantile[sofa] for stay_id, sofa in stay_id_to_sofa.items()
         }
         return (
             df.with_columns(pl.col("code").str.split("//"))
             .with_columns(
                 code=pl.col("code").list[0],
                 text_value=pl.lit("ICU_TYPE//") + pl.col("code").list[1],
-                sofa_quantiles=pl.col("icustay_id").replace_strict(
-                    stay_id_to_sofa, default=None
-                ),
+                sofa_quantiles=pl.col("icustay_id").replace_strict(stay_id_to_sofa, default=None),
             )
             .with_columns(
                 pl.when(code=ST.ICU_ADMISSION)
@@ -537,9 +509,7 @@ class TransferData:
         return (
             df.with_columns(pl.col.code.str.split("//"))
             .filter(pl.col.code.list[1].is_in(["transfer", "admit"]))
-            .with_columns(
-                code=pl.lit("TRANSFER//") + pl.col.code.list[2].fill_null("UNKNOWN")
-            )
+            .with_columns(code=pl.lit("TRANSFER//") + pl.col.code.list[2].fill_null("UNKNOWN"))
         )
 
 
@@ -572,25 +542,21 @@ class BMIData:
 
 class LabData:
     @staticmethod
-    @MatchAndRevise(prefix="Laboratory Result//", apply_vocab=True)
+    @MatchAndRevise(prefix="LAB//", apply_vocab=True)
     def retain_only_test_with_numeric_result(df: pl.DataFrame) -> pl.DataFrame:
         return df.filter(pl.col("numeric_value").is_not_null())
 
     @staticmethod
-    @MatchAndRevise(prefix="Laboratory Result//", needs_counts=True, needs_vocab=True)
+    @MatchAndRevise(prefix="LAB//", needs_counts=True, needs_vocab=True)
     def make_quantiles(
-        df: pl.DataFrame,
-        counts: dict[str, int] | None = None,
-        vocab: list[str] | None = None,
+        df: pl.DataFrame, counts: dict[str, int] | None = None, vocab: list[str] | None = None
     ) -> pl.DataFrame:
         # TODO: we've run a simple analysis and decided to keep 200 most frequent labs
         # as the cover most of all the labs in the dataset
         known_lab_names = list(counts.keys())[:200] if vocab is None else vocab
         return (
             df.filter(unify_code_names(pl.col("code")).is_in(known_lab_names))
-            .with_columns(
-                pl.concat_list("code", pl.lit("LAB//Q//") + pl.col("code").str.slice(5))
-            )
+            .with_columns(pl.concat_list("code", pl.lit("LAB//Q//") + pl.col("code").str.slice(5)))
             .explode("code")
         )
 
@@ -606,9 +572,7 @@ class HCPCSData:
 class PatientFluidOutputData:
     @staticmethod
     @MatchAndRevise(prefix="SUBJECT_FLUID_OUTPUT//", needs_vocab=True)
-    def make_quantiles(
-        df: pl.DataFrame, vocab: list[str] | None = None
-    ) -> pl.DataFrame:
+    def make_quantiles(df: pl.DataFrame, vocab: list[str] | None = None) -> pl.DataFrame:
         if vocab is not None:
             df.filter(pl.col("code").is_in(vocab))
 
@@ -617,8 +581,7 @@ class PatientFluidOutputData:
             df.filter(pl.col("numeric_value").is_not_null())
             .with_columns(
                 pl.concat_list(
-                    "code",
-                    pl.lit(prefix + "Q//") + pl.col("code").str.slice(len(prefix)),
+                    "code", pl.lit(prefix + "Q//") + pl.col("code").str.slice(len(prefix))
                 )
             )
             .explode("code")
@@ -646,8 +609,7 @@ class EdData:
             df.filter(pl.col("numeric_value").is_not_null())
             .with_columns(
                 code=pl.concat_list(
-                    "code",
-                    pl.lit("Q") + pl.col("numeric_value").cast(pl.UInt8).cast(pl.Utf8),
+                    "code", pl.lit("Q") + pl.col("numeric_value").cast(pl.UInt8).cast(pl.Utf8)
                 )
             )
             .explode("code")

@@ -60,9 +60,7 @@ def get_dataset_cls(task: Task) -> type[InferenceDataset]:
             raise ValueError(f"Unknown task: {task}, available are {', '.join(Task)}")
 
 
-def evaluate_dataset_subset(
-    dataset: InferenceDataset, subset_size: int | float
-) -> tuple[int, str]:
+def evaluate_dataset_subset(dataset: InferenceDataset, subset_size: int | float) -> tuple[int, str]:
     if subset_size is None:
         n_samples = len(dataset)
         token_suffix = ""
@@ -75,9 +73,7 @@ def evaluate_dataset_subset(
         n_samples = int(subset_size)
         token_suffix = f"_subset{n_samples}"
         if n_samples > len(dataset):
-            raise ValueError(
-                f"Subset size ({n_samples}) is larger than the dataset size"
-            )
+            raise ValueError(f"Subset size ({n_samples}) is larger than the dataset size")
     return n_samples, token_suffix
 
 
@@ -90,9 +86,7 @@ def producer(subsets: Sequence, queue: Queue, num_proc: int):
         queue.put(None)
 
 
-def create_loader(
-    queue: Queue, dataset
-) -> Generator[tuple[th.Tensor, dict], None, None]:
+def create_loader(queue: Queue, dataset) -> Generator[tuple[th.Tensor, dict], None, None]:
     while True:
         indices = queue.get()
         if indices is None:
@@ -182,6 +176,4 @@ def wait_for_workers(output_dir: str | Path, sleep_time: int = 2):
         time.sleep(sleep_time)
         time_slept += sleep_time
         if time_slept > 30:
-            logger.warning(
-                f"Waiting for: {list(output_dir.glob('.*.parquet_cache/locks/*.json'))}"
-            )
+            logger.warning(f"Waiting for: {list(output_dir.glob('.*.parquet_cache/locks/*.json'))}")

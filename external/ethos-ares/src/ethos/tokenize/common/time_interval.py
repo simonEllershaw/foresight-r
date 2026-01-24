@@ -20,34 +20,29 @@ def inject_time_intervals(
     patient_id_col = MatchAndRevise.sort_cols[0]
 
     time_intervals = _parse_time_interval_spec(time_intervals_spec)
-    interval_names = sorted(
-        time_intervals.keys(), reverse=True, key=lambda v: time_intervals[v]
-    )
+    interval_names = sorted(time_intervals.keys(), reverse=True, key=lambda v: time_intervals[v])
 
     time_diff_col, timeline_end_col = "time_diff", "timeline_end"
     largest_interval = interval_names.pop(0)
 
     # the largest interval is repeated as many times as fits
-    intervals_expr = pl.when(
-        pl.col(time_diff_col) >= time_intervals[largest_interval]
-    ).then(
+    intervals_expr = pl.when(pl.col(time_diff_col) >= time_intervals[largest_interval]).then(
         pl.lit(largest_interval).repeat_by(
             (pl.col(time_diff_col) / time_intervals[largest_interval]).round()
         )
     )
     for name in interval_names:
-        intervals_expr = intervals_expr.when(
-            pl.col(time_diff_col) >= time_intervals[name]
-        ).then(pl.concat_list(pl.lit(name)))
+        intervals_expr = intervals_expr.when(pl.col(time_diff_col) >= time_intervals[name]).then(
+            pl.concat_list(pl.lit(name))
+        )
     intervals_expr = intervals_expr.otherwise([])
 
     return (
         df.with_columns(
             pl.col("time").diff().alias(time_diff_col),
-            (
-                pl.col(patient_id_col)
-                != pl.col(patient_id_col).shift(-1, fill_value=True)
-            ).alias(timeline_end_col),
+            (pl.col(patient_id_col) != pl.col(patient_id_col).shift(-1, fill_value=True)).alias(
+                timeline_end_col
+            ),
         )
         # zero out the time_diff when the timeline ends
         .with_columns(
@@ -72,14 +67,10 @@ class IntervalEstimator(ScanAndAggregate):
     aggregations = ["min", "q1", "mean", "median", "q3", "max"]
     patient_id_col = MatchAndRevise.sort_cols[0]
 
-    def __call__(
-        self, df: pl.DataFrame, *, time_intervals_spec: dict[str, dict]
-    ) -> pl.DataFrame:
+    def __call__(self, df: pl.DataFrame, *, time_intervals_spec: dict[str, dict]) -> pl.DataFrame:
         time_intervals = _parse_time_interval_spec(time_intervals_spec)
         return (
-            df.select(
-                self.patient_id_col, "code", "time", pl.col("time").diff().alias("diff")
-            )
+            df.select(self.patient_id_col, "code", "time", pl.col("time").diff().alias("diff"))
             .filter(pl.col("code").is_in(list(time_intervals)))
             .set_sorted(self.patient_id_col)
             .with_columns(n=pl.count("code").over(self.patient_id_col, "time"))
@@ -95,9 +86,7 @@ class IntervalEstimator(ScanAndAggregate):
                 q3=pl.col("diff").quantile(0.75),
                 max=pl.col("diff").max(),
             )
-            .sort(
-                pl.col("code").replace_strict(time_intervals, return_dtype=pl.Duration)
-            )
+            .sort(pl.col("code").replace_strict(time_intervals, return_dtype=pl.Duration))
         )
 
     def agg(self, in_fps: list, out_fp: str | Path) -> None:
@@ -121,8 +110,6 @@ class IntervalEstimator(ScanAndAggregate):
             .collect()
             .pivot(index="stats", columns="code", values="value")
         )
-        interval_stats_dict = dict(
-            zip(df["stats"], df.select(pl.exclude("stats")).to_dicts())
-        )
+        interval_stats_dict = dict(zip(df["stats"], df.select(pl.exclude("stats")).to_dicts()))
         with Path(out_fp).open("w") as f:
             json.dump(interval_stats_dict, f, indent=4)

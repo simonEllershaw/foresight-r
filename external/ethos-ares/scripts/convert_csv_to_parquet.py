@@ -30,9 +30,7 @@ def convert_csv_to_parquet(path, data_format=DEFAULT_DATA_FORMAT, n_jobs=1):
     logger.info(f"Found {len(subset_paths)} subsets in the directory.")
 
     Parallel(n_jobs=n_jobs, verbose=2000)(
-        delayed(_convert_csv_to_parquet)(
-            orig_path, out_dir / orig_path.relative_to(path).parent
-        )
+        delayed(_convert_csv_to_parquet)(orig_path, out_dir / orig_path.relative_to(path).parent)
         for orig_path in subset_paths
     )
     logger.info("Done.")

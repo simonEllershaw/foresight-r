@@ -30,9 +30,7 @@ def get_lr(it, args):
     return args.min_lr + coeff * (args.lr - args.min_lr)
 
 
-def configure_optimizers(
-    model: torch.nn.Module, weight_decay, learning_rate, betas, device_type
-):
+def configure_optimizers(model: torch.nn.Module, weight_decay, learning_rate, betas, device_type):
     # start with all of the candidate parameters
     param_dict = {pn: p for pn, p in model.named_parameters()}
     # filter out those that do not require grad
@@ -51,9 +49,7 @@ def configure_optimizers(
     fused_available = "fused" in inspect.signature(torch.optim.AdamW).parameters
     use_fused = fused_available and "cuda" in device_type
     extra_args = dict(fused=True) if use_fused else dict()
-    optimizer = torch.optim.AdamW(
-        optim_groups, lr=learning_rate, betas=betas, **extra_args
-    )
+    optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, **extra_args)
 
     return optimizer
 

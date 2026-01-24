@@ -10,24 +10,13 @@ from omegaconf import DictConfig, OmegaConf
 from torch.distributed import destroy_process_group, init_process_group
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler
-from transformers import (
-    BertConfig,
-    EncoderDecoderConfig,
-    EncoderDecoderModel,
-    GPT2Config,
-)
+from transformers import BertConfig, EncoderDecoderConfig, EncoderDecoderModel, GPT2Config
 
 from ..datasets import TimelineDataset
 from ..model import GPT2LMNoBiasModel
 from ..utils import load_model_checkpoint, setup_torch
 from .metrics import estimate_loss
-from .utils import (
-    ModelType,
-    configure_optimizers,
-    estimate_mfu,
-    get_lr,
-    make_infinite_loader,
-)
+from .utils import ModelType, configure_optimizers, estimate_mfu, get_lr, make_infinite_loader
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="training")
@@ -69,9 +58,7 @@ def main(cfg: DictConfig):
         ddp_world_size = int(os.environ["WORLD_SIZE"])
         device = f"cuda:{ddp_local_rank}"
         th.cuda.set_device(device)
-        master_process = (
-            ddp_rank == 0
-        )  # this process will do logging, checkpointing etc.
+        master_process = ddp_rank == 0  # this process will do logging, checkpointing etc.
         seed_offset = ddp_rank  # each process gets a different seed
         # world_size number of processes will be training simultaneously, so we can scale
         # down the desired gradient accumulation iterations per process proportionally
@@ -122,19 +109,10 @@ def main(cfg: DictConfig):
         x, y = next(train_dataloader)
         y = y.to(device, non_blocking=True)
         if isinstance(x, list):
-            return (
-                x[0].to(device, non_blocking=True),
-                x[1].to(device, non_blocking=True),
-            ), y
+            return (x[0].to(device, non_blocking=True), x[1].to(device, non_blocking=True)), y
         return x.to(device, non_blocking=True), y
 
-    iter_num, best_val_loss, best_metric_score, optimizer_state, wandb_path = (
-        0,
-        1e9,
-        0,
-        None,
-        None,
-    )
+    iter_num, best_val_loss, best_metric_score, optimizer_state, wandb_path = 0, 1e9, 0, None, None
     if cfg.resume:
         model_fp = out_dir / "recent_model.pt"
         logger.info(f"Resuming from the most recent model: {model_fp}")
@@ -173,9 +151,7 @@ def main(cfg: DictConfig):
                 is_encoder_decoder=True,
                 use_bfloat16=True,
             )
-            config = EncoderDecoderConfig.from_encoder_decoder_configs(
-                encoder_config, config
-            )
+            config = EncoderDecoderConfig.from_encoder_decoder_configs(encoder_config, config)
             raw_model = EncoderDecoderModel(config=config)
         else:
             raw_model = GPT2LMNoBiasModel(config)
@@ -216,9 +192,7 @@ def main(cfg: DictConfig):
                 "vocab_size": len(vocab),
                 "vocab_size_train": vocab_size,
                 "model_num_params": num_params,
-                "model_num_params_total": raw_model.num_parameters(
-                    exclude_embeddings=False
-                ),
+                "model_num_params_total": raw_model.num_parameters(exclude_embeddings=False),
             }
         )
         run_id = wandb_path.split("/")[-1] if wandb_path is not None else None
@@ -304,9 +278,7 @@ def main(cfg: DictConfig):
                 # the official way to do this is with model.no_sync() context manager, but
                 # I really dislike that this bloats the code and forces us to repeat code
                 # looking at the source of that context manager, it just toggles this variable
-                model.require_backward_grad_sync = (
-                    micro_step == cfg.gradient_accumulation_steps - 1
-                )
+                model.require_backward_grad_sync = micro_step == cfg.gradient_accumulation_steps - 1
             with ctx:
                 if isinstance(X, tuple):
                     output = model(input_ids=X[0], decoder_input_ids=X[1], labels=Y)
@@ -341,14 +313,9 @@ def main(cfg: DictConfig):
             lossf = loss.item() * cfg.gradient_accumulation_steps
             if local_iter_num >= 5 and model_type == ModelType.DECODER:
                 mfu = estimate_mfu(
-                    raw_model,
-                    num_params,
-                    cfg.batch_size * cfg.gradient_accumulation_steps,
-                    dt,
+                    raw_model, num_params, cfg.batch_size * cfg.gradient_accumulation_steps, dt
                 )
-                running_mfu = (
-                    mfu if running_mfu == -1.0 else 0.9 * running_mfu + 0.1 * mfu
-                )
+                running_mfu = mfu if running_mfu == -1.0 else 0.9 * running_mfu + 0.1 * mfu
             logger.info(
                 f"[{iter_num}]: loss={lossf:.4f}, time={dt * 1000:.0f}ms, mfu={running_mfu:.2%}"
             )

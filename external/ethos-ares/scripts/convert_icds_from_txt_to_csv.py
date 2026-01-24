@@ -19,9 +19,7 @@ def main(filename):
         long = line[77:].strip()
         records.append((code, billable, short, long))
 
-    df = pd.DataFrame.from_records(
-        records, columns=["code", "billable", "short", "long"]
-    )
+    df = pd.DataFrame.from_records(records, columns=["code", "billable", "short", "long"])
     df.to_csv(file.with_suffix(".csv"), index=False)
     print(f"Converted file saved to '{file.with_suffix('.csv')}'")
     print(f"Found {len(df)} ICDs codes")

@@ -3,9 +3,7 @@ import torch as th
 from ethos.datasets.base import InferenceDataset
 
 
-def create_single_trajectory_dataset(
-    dataset_cls: type[InferenceDataset],
-) -> type[InferenceDataset]:
+def create_single_trajectory_dataset(dataset_cls: type[InferenceDataset]) -> type[InferenceDataset]:
     class SingleTrajectoryDataset(InferenceDataset):
         def __init__(self, sample_idx: int, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -34,9 +32,7 @@ def create_single_trajectory_dataset(
                 "start_token": self.vocab.decode(self.tokens[start_idx]),
                 "start_time": self.times[start_idx].item(),
                 "true_token_dist": self.outcome_idx - start_idx,
-                "true_token_time": (
-                    self.times[self.outcome_idx] - self.times[start_idx]
-                ).item(),
+                "true_token_time": (self.times[self.outcome_idx] - self.times[start_idx]).item(),
                 "data_idx": start_idx,
             }
 

@@ -1,5 +1,6 @@
 import pickle
 import shutil
+import time
 from pathlib import Path
 
 import hydra
@@ -29,16 +30,9 @@ def main(cfg: DictConfig):
     output_dir = Path(cfg.output_dir) / out_fn
     # Update the real output directory path
     cfg.output_dir = str(output_dir)
-
-    if cfg.get("overwrite", False) and output_dir.exists():
-        logger.info(f"Overwriting previous outputs in '{output_dir}'.")
-        shutil.rmtree(output_dir)
-
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(
-        f"Tokenizing '{input_dir}' using the {dataset.upper()} preprocessing pipeline."
-    )
+    logger.info(f"Tokenizing '{input_dir}' using the {dataset.upper()} preprocessing pipeline.")
 
     in_fps = list(input_dir.glob("*.parquet"))
     logger.info(f"Found {len(in_fps)} patient splits in '{input_dir}'.")
@@ -76,27 +70,23 @@ def main(cfg: DictConfig):
     if cfg.worker == 1:
         if cfg.vocab is None:
             vocab = Vocabulary()
-            # with (output_dir / STATIC_DATA_FN).open("rb") as f:
-            #     static_codes = sorted(
-            #         {
-            #             code
-            #             for pt_static_data in pickle.load(f).values()
-            #             for static_data_obj in pt_static_data.values()
-            #             for code in static_data_obj["code"]
-            #         }.difference([str(ST.DOB)])
-            #     )
-            # vocab.add_words(static_codes)
+            with (output_dir / STATIC_DATA_FN).open("rb") as f:
+                static_codes = sorted(
+                    {
+                        code
+                        for pt_static_data in pickle.load(f).values()
+                        for static_data_obj in pt_static_data.values()
+                        for code in static_data_obj["code"]
+                    }.difference([str(ST.DOB)])
+                )
+            vocab.add_words(static_codes)
 
-            codes = pl.read_csv(output_dir / cfg.code_counts_fn, columns="code")[
-                "code"
-            ].to_list()
+            codes = pl.read_csv(output_dir / cfg.code_counts_fn, columns="code")["code"].to_list()
             vocab.add_words(codes)
         else:
             vocab = Vocabulary.from_path(cfg.vocab)
             if (quantile_fp := Path(cfg.vocab) / cfg.quantiles_fn).exists():
-                logger.info(
-                    f"Copying quantile breaks from {quantile_fp} to {output_dir}"
-                )
+                logger.info(f"Copying quantile breaks from {quantile_fp} to {output_dir}")
                 shutil.copy(quantile_fp, output_dir / cfg.quantiles_fn)
 
             if (intervals_fp := Path(cfg.vocab) / cfg.intervals_fn).exists():
@@ -109,5 +99,5 @@ def main(cfg: DictConfig):
         for in_fp in in_fps:
             TimelineDataset.tensorize(in_fp, output_dir / in_fp.name, vocab)
 
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()

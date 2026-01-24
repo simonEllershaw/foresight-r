@@ -54,9 +54,7 @@ class MatchAndRevise:
             if self._needs_counts:
                 if vocab is None:
                     if (counts := kwargs.get("counts", None)) is None:
-                        warnings.warn(
-                            "Expected `counts` is not None if `vocab` is None"
-                        )
+                        warnings.warn("Expected `counts` is not None if `vocab` is None")
                     else:
                         if not isinstance(counts, dict):
                             counts = dict(zip(*pl.read_csv(counts)[:, [0, 1]]))
@@ -80,10 +78,7 @@ class MatchAndRevise:
                 .with_columns(unify_code_names(pl.col("code")))
             )
 
-            if (
-                isinstance(new_events, pl.DataFrame)
-                and not new_events[self.index_col].is_sorted()
-            ):
+            if isinstance(new_events, pl.DataFrame) and not new_events[self.index_col].is_sorted():
                 raise ValueError(
                     "The resulting DataFrame is expected to be sorted by the index"
                     f" column: '{self.index_col}'"

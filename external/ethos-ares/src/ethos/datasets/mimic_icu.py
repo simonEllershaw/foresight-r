@@ -16,9 +16,7 @@ class DrgPredictionDataset(InferenceDataset):
 
     def __init__(self, input_dir: str | Path, n_positions: int = 2048, **kwargs):
         super().__init__(input_dir, n_positions, **kwargs)
-        self.stop_stokens = [
-            stoken for stoken in self.vocab if stoken.startswith("DRG//")
-        ]
+        self.stop_stokens = [stoken for stoken in self.vocab if stoken.startswith("DRG//")]
         self.drg_indices = self._get_indices_of_stokens(
             set(self.stop_stokens).difference(["DRG//UNKNOWN"])
         )
@@ -84,9 +82,7 @@ class ICUAdmissionDataset(InferenceDataset):
         icu_adm_or_dc_or_dth_indices = self._get_indices_of_stokens(
             [ST.DISCHARGE, ST.ICU_ADMISSION, ST.DEATH]
         )
-        self.outcome_indices = self._match(
-            icu_adm_or_dc_or_dth_indices, self.adm_indices
-        )
+        self.outcome_indices = self._match(icu_adm_or_dc_or_dth_indices, self.adm_indices)
 
     def __len__(self) -> int:
         return len(self.adm_indices)
@@ -150,9 +146,7 @@ class ICUReadmissionDataset(InferenceDataset):
         return super().__getitem__(icu_dc_idx), {
             "expected": self.vocab.decode(self.tokens[outcome_idx]),
             "true_token_dist": (outcome_idx - icu_dc_idx).item(),
-            "true_token_time": (
-                self.times[outcome_idx] - self.times[icu_dc_idx]
-            ).item(),
+            "true_token_time": (self.times[outcome_idx] - self.times[icu_dc_idx]).item(),
             "icu_stay_id_start": self._get_icu_stay_id(icu_dc_idx),
             "icu_stay_id_outcome": self._get_icu_stay_id(outcome_idx),
             "patient_id": self.patient_id_at_idx[icu_dc_idx].item(),

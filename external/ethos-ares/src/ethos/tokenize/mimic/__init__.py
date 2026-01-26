@@ -1,5 +1,4 @@
 from .preprocessors_modified import (
-    BMIData,
     DeathData,
     DemographicData,
     DiagnosesData,

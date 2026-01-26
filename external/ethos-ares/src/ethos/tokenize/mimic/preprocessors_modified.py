@@ -223,6 +223,8 @@ class MeasurementData:
             # Include Blood Pressure as simple measurments now seperate events
             "EMERGENCY_DEPARTMENT_TRIAGE//SYSTOLIC_BLOOD_PRESSURE",
             "EMERGENCY_DEPARTMENT_TRIAGE//DIASTOLIC_BLOOD_PRESSURE",
+            # Include Observational Medical Records
+            "OBSERVATION_MEDICAL_RECORD//"
         ]
     )
     def process_simple_measurements(df: pl.DataFrame) -> pl.DataFrame:
@@ -514,33 +516,6 @@ class TransferData:
                 code=pl.lit("TRANSFER//") + pl.col.code.list[2].fill_null("UNKNOWN")
             )
         )
-
-
-class BMIData:
-    @staticmethod
-    @MatchAndRevise(prefix="OBSERVATION_MEDICAL_RECORD//BMI//")
-    def make_quantiles(df: pl.DataFrame) -> pl.DataFrame:
-        return (
-            df.with_columns(
-                pl.col("text_value").cast(str).cast(float).alias("numeric_value"),
-                pl.lit(None).alias("text_value"),
-            )
-            .filter(pl.col("numeric_value").is_between(10, 100))
-            .with_columns(pl.concat_list(pl.lit("OBSERVATION_MEDICAL_RECORD//BMI"), pl.lit("OBSERVATION_MEDICAL_RECORD//BMI//Q")).alias("code"))
-            .explode("code")
-        )
-
-    @staticmethod
-    @MatchAndRevise(prefix=["OBSERVATION_MEDICAL_RECORD//BMI", "Q"])
-    def join_token_and_quantile(df: pl.DataFrame) -> pl.DataFrame:
-        q_following_bmi_mask = (pl.col("code") == "OBSERVATION_MEDICAL_RECORD//BMI").shift(1)
-        return df.with_columns(
-            code=pl.when(q_following_bmi_mask)
-            .then(pl.lit("OBSERVATION_MEDICAL_RECORD//BMI//") + pl.col("code"))
-            .when(pl.col("code") == "OBSERVATION_MEDICAL_RECORD//BMI")
-            .then(None)
-            .otherwise("code")
-        ).drop_nulls("code")
 
 
 class LabData:

@@ -42,7 +42,7 @@ stages:
     transforms:
       - DeathData.place_death_before_dc_if_same_time
       # - PatientFluidOutputData.make_quantiles # Not included in MEDS schema
-      - BMIData.make_quantiles
+      # - BMIData.make_quantiles # BMI dealt with as simple measurement
       - EdData.process_ed_registration
       - EdData.process_ed_acuity
       - MeasurementData.process_simple_measurements
@@ -60,7 +60,7 @@ stages:
       code_prefixes:
         - EMERGENCY_DEPARTMENT_VITAL_SIGNS//Q
         - EMERGENCY_DEPARTMENT_TRIAGE//Q
-        - OBSERVATION_MEDICAL_RECORD//BMI//Q
+        - OBSERVATION_MEDICAL_RECORD//Q
         # - SUBJECT_FLUID_OUTPUT//Q// # Not included in MEDS schema
     agg_to: ${output_dir}/${quantiles_fn}
     agg_params:
@@ -73,7 +73,7 @@ stages:
 
   - name: preprocessing
     transforms:
-      - BMIData.join_token_and_quantile # Not clear why this is needed
+      # - BMIData.join_token_and_quantile # BMI dealt with as simple measurement
       - DiagnosesData.prepare_codes_for_processing
       - DiagnosesData.convert_icd_9_to_10
       - DiagnosesData.process_icd10

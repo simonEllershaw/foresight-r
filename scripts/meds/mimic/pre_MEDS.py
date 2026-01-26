@@ -271,23 +271,14 @@ def process_ed_diagnosis_df(
     return add_out_time_by_stay_id(ed_diagnosis_df, edstays_df)
 
 
-def _round_to_3sf(expr: pl.Expr) -> pl.Expr:
-    """Round a numeric expression to 3 significant figures as float."""
-    log_val = expr.abs().log10()
-    scale = 2 - log_val.floor()
-    factor = pl.lit(10.0) ** scale  # Use float base to handle negative exponents
-    return (expr * factor).round(0) / factor
-
-
 def _convert_fahrenheit_to_celsius(df: pl.LazyFrame) -> pl.LazyFrame:
     """Convert Fahrenheit temperatures to Celsius (assumes F if > 45)."""
-    temp_expr = pl.col("temperature").cast(pl.Float64, strict=False)
-    converted_temp = (
-        pl.when(temp_expr.is_not_null() & (temp_expr > 45))
-        .then((temp_expr - 32) * 5 / 9)
-        .otherwise(temp_expr)
+    return df.with_columns(
+        pl.when(pl.col("temperature") > 45)
+        .then((pl.col("temperature") - 32) * 5 / 9)
+        .otherwise(pl.col("temperature"))
+        .alias("temperature")
     )
-    return df.with_columns(_round_to_3sf(converted_temp).alias("temperature"))
 
 
 def process_ed_vitals_with_time_df(
@@ -353,11 +344,11 @@ def process_omr_df(omr_df: pl.LazyFrame) -> pl.LazyFrame:
         .with_columns(
             pl.col("bp_parts")
             .list.get(0)
-            .cast(pl.Float64, strict=False)
+            .cast(pl.Float32, strict=False)
             .alias("SYSTOLIC_BLOOD_PRESSURE_MMHG"),
             pl.col("bp_parts")
             .list.get(1)
-            .cast(pl.Float64, strict=False)
+            .cast(pl.Float32, strict=False)
             .alias("DIASTOLIC_BLOOD_PRESSURE_MMHG"),
         )
         .unpivot(
@@ -378,22 +369,14 @@ def process_omr_df(omr_df: pl.LazyFrame) -> pl.LazyFrame:
             )
         )
         .with_columns(
-            pl.col("result_value").cast(pl.Float64, strict=False).alias("result_num"),
+            pl.col("result_value").cast(pl.Float32, strict=False).alias("result_num"),
             pl.col("result_name").str.replace_all(r"[()]", ""),
         )
         .filter(pl.col("result_num").is_not_null())
         .select(output_cols)
     )
 
-    return (
-        pl.concat([bp_df, non_bp_df])
-        .pipe(convert_date_to_end_of_day_timestamp)
-        .with_columns(
-            rounded=pl.when(pl.col("result_num") == 0)
-            .then(0.0)
-            .otherwise(_round_to_3sf(pl.col("result_num")))
-        )
-    )
+    return pl.concat([bp_df, non_bp_df]).pipe(convert_date_to_end_of_day_timestamp)
 
 
 # Processing functions registry for MIMIC-IV data files.

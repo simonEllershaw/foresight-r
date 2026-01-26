@@ -74,6 +74,15 @@ class DemographicData:
 
 class InpatientData:
     @staticmethod
+    @MatchAndRevise(prefix="DIAGNOSIS_RELATED_GROUPS//", apply_vocab=True)
+    def process_drg_codes(df: pl.DataFrame) -> pl.DataFrame:
+        """Changes: Filter to HCFA code done in MIMIC Extract instead of here"""
+        return df.with_columns(
+            code=pl.lit("DIAGNOSIS_RELATED_GROUPS//")
+            + pl.col.code.str.split("//").list[2].cast(int).cast(str)
+        )
+
+    @staticmethod
     @MatchAndRevise(prefix="HOSPITAL_ADMISSION//TYPE//")
     def process_hospital_admissions(df: pl.DataFrame) -> pl.DataFrame:
         """
@@ -397,7 +406,7 @@ class ProcedureData:
 
 class MedicationData:
     @staticmethod
-    @MatchAndRevise(prefix="HOSPITAL_MEDICATION//", needs_vocab=True)
+    @MatchAndRevise(prefix=["HOSPITAL_MEDICATION//", "EMERGENCY_DEPARTMENT_MEDICATION//"], needs_vocab=True)
     def convert_to_atc(
         df: pl.DataFrame, vocab: list[str] | None = None
     ) -> pl.DataFrame:

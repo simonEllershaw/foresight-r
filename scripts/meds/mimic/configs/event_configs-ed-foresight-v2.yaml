@@ -233,12 +233,13 @@ hosp/drgcodes:
   drg:
     code:
       - "DIAGNOSIS_RELATED_GROUPS"
-      # Code adds no more information over the description
+      - col(drg_type)
+      - col(drg_code)
       - col(description)
     hadm_id: hadm_id
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    # Filter by drg_type to only HCFA so not needed in code
+    # Used for filtering to HCFA
     text_value: col(drg_type)
     # Not used in Ethos-ARES tokenization
     # drg_severity: drg_severity

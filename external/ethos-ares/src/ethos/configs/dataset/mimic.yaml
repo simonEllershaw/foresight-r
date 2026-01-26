@@ -22,7 +22,7 @@ stages:
       - DemographicData.process_race
       # - DemographicData.process_marital_status # Handled as simple text event
       - TextData.process_simple_text_events
-      # - InpatientData.process_drg_codes # Already filtered to HCFA codes in extract_MIMIC
+      - InpatientData.process_drg_codes
       - InpatientData.process_hospital_admissions
       - InpatientData.process_hospital_discharges # must be before processing diagnoses
       # - HCPCSData.unify_names # Pass through so not needed

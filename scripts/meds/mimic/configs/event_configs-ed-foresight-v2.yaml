@@ -114,6 +114,25 @@ ed/triage:
   #   time_format:
   #     - "%Y-%m-%d %H:%M:%S"
   #   stay_id: stay_id
+  # Gender joined from subjects table
+  # Repeated here as well as admission so that age and gender are available even if no previous admission
+  gender:
+    code:
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "GENDER"
+    text_value: col(gender)
+    time: col(intime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
+  # Age joined from subjects table
+  age:
+    code:
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "AGE"
+    numeric_value: col(age)
+    time: col(intime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+    stay_id: stay_id
 
 ed/diagnosis:
   diagnosis:
@@ -169,6 +188,14 @@ hosp/admissions:
       - "HOSPITAL_ADMISSION"
       - "GENDER"
     text_value: col(gender)
+    time: col(admittime)
+    time_format: "%Y-%m-%d %H:%M:%S"
+  # Age joined from subjects table
+  age:
+    code:
+      - "HOSPITAL_ADMISSION"
+      - "AGE"
+    numeric_value: col(age)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   # Language not used in Ethos-ARES tokenization
@@ -354,16 +381,16 @@ hosp/omr:
     # time_format: "%Y-%m-%d %H:%M:%S"
 
 hosp/patients:
-  dob:
-    code:
-      # Not using the MEDS official code for birth (MEDS_BIRTH) due to semantics also include gender.
-      - "BIRTH"
-      - "GENDER"
-    text_value: col(gender)
-    time: col(year_of_birth)
-    # Set as Y-01-01 00:00:00 internally in pre-MEDS
-    # Leave at 00:00:00 to ensure no events come before this event
-    time_format: "%Y"
+  # dob:
+  #   code:
+  #     # Not using the MEDS official code for birth (MEDS_BIRTH) due to semantics also include gender.
+  #     - "BIRTH"
+  #     - "GENDER"
+  #   text_value: col(gender)
+  #   time: col(year_of_birth)
+  #   # Set as Y-01-01 00:00:00 internally in pre-MEDS
+  #   # Leave at 00:00:00 to ensure no events come before this event
+  #   time_format: "%Y"
   death:
     code:
       # Not using the MEDS official code for death (MEDS_DEATH) due to semantics.

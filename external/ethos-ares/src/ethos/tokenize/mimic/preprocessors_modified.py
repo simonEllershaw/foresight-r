@@ -224,7 +224,10 @@ class MeasurementData:
             "EMERGENCY_DEPARTMENT_TRIAGE//SYSTOLIC_BLOOD_PRESSURE",
             "EMERGENCY_DEPARTMENT_TRIAGE//DIASTOLIC_BLOOD_PRESSURE",
             # Include Observational Medical Records
-            "OBSERVATION_MEDICAL_RECORD//"
+            "OBSERVATION_MEDICAL_RECORD//",
+            # Include Age both at Hospital Admission and ED triage
+            "HOSPITAL_ADMISSION//AGE",
+            "EMERGENCY_DEPARTMENT_TRIAGE//AGE",
         ]
     )
     def process_simple_measurements(df: pl.DataFrame) -> pl.DataFrame:

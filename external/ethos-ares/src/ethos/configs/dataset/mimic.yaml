@@ -61,6 +61,7 @@ stages:
         - EMERGENCY_DEPARTMENT_VITAL_SIGNS//Q
         - EMERGENCY_DEPARTMENT_TRIAGE//Q
         - OBSERVATION_MEDICAL_RECORD//Q
+        - HOSPITAL_ADMISSION//Q
         # - SUBJECT_FLUID_OUTPUT//Q// # Not included in MEDS schema
     agg_to: ${output_dir}/${quantiles_fn}
     agg_params:

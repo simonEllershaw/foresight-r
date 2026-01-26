@@ -215,17 +215,38 @@ def process_lab_events_df(
     return result
 
 
+def _prepare_patients_with_demographics(patients_df: pl.LazyFrame) -> pl.LazyFrame:
+    """Prepares patients data with standardized gender and year_of_birth."""
+    return patients_df.select(
+        "subject_id", "gender", "anchor_year", "anchor_age"
+    ).with_columns(
+        pl.col("gender").replace_strict(
+            {"F": "Female", "M": "Male"}, default=pl.col("gender")
+        ),
+        (pl.col("anchor_year") - pl.col("anchor_age")).alias("year_of_birth"),
+    )
+
+
+def _add_age_column(df: pl.LazyFrame, time_column: str = "admittime") -> pl.LazyFrame:
+    """Adds age column (in years) from a timestamp and year_of_birth, then drops intermediate columns."""
+    return df.with_columns(
+        (
+            pl.col(time_column).str.strptime(pl.Datetime)
+            - pl.col("year_of_birth").cast(pl.Int32).cast(pl.Date)
+        )
+        .dt.total_days()
+        .truediv(365.25)
+        .alias("age")
+    ).drop("year_of_birth", "anchor_year", "anchor_age")
+
+
 def process_admissions_df(
     admissions_df: pl.LazyFrame, patients_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Joins admissions with `patients` to add the standardized `gender` column and title case columns."""
-    patients_df = patients_df.select("subject_id", "gender").with_columns(
-        pl.col("gender").replace_strict(
-            {"F": "Female", "M": "Male"}, default=pl.col("gender")
-        )
-    )
+    """Joins admissions with `patients` to add the standardized `gender` column, and calculates patient age at admission."""
+    patients_df = _prepare_patients_with_demographics(patients_df)
     admissions_df = admissions_df.join(patients_df, on="subject_id", how="left")
-    return admissions_df
+    return _add_age_column(admissions_df, "admittime")
 
 
 def process_drgcodes_df(
@@ -287,6 +308,21 @@ def process_ed_vitals_with_time_df(
     """Adds ED registration time (`intime`) and converts temperatures > 45 (assumed Fahrenheit) to Celsius."""
     ed_vitals_with_time_df = add_reg_time_by_stay_id(ed_vitals_with_time_df, edstays_df)
     return _convert_fahrenheit_to_celsius(ed_vitals_with_time_df)
+
+
+def process_ed_triage_df(
+    ed_triage_df: pl.LazyFrame, edstays_df: pl.LazyFrame, patients_df: pl.LazyFrame
+) -> pl.LazyFrame:
+    """Adds ED registration time (`intime`), gender, age, and converts temperatures > 45 (assumed Fahrenheit) to Celsius."""
+    # Get intime and subject_id from edstays
+    ed_triage_df = add_reg_time_by_stay_id(ed_triage_df, edstays_df)
+
+    # Add demographics and age
+    patients_df = _prepare_patients_with_demographics(patients_df)
+    ed_triage_df = ed_triage_df.join(patients_df, on="subject_id", how="left")
+    ed_triage_df = _add_age_column(ed_triage_df, "intime")
+
+    return _convert_fahrenheit_to_celsius(ed_triage_df)
 
 
 def process_hcpcs_events_df(
@@ -421,7 +457,7 @@ FUNCTIONS = {
     ),
     "hosp/admissions": (
         process_admissions_df,
-        [("hosp/patients", ["subject_id", "gender"])],
+        [("hosp/patients", ["subject_id", "gender", "anchor_year", "anchor_age"])],
     ),
     "hosp/hcpcsevents": (
         process_hcpcs_events_df,
@@ -430,8 +466,11 @@ FUNCTIONS = {
     "hosp/omr": (process_omr_df, None),
     "ed/diagnosis": (process_ed_diagnosis_df, [("ed/edstays", ["stay_id", "outtime"])]),
     "ed/triage": (
-        process_ed_vitals_with_time_df,
-        [("ed/edstays", ["stay_id", "intime"])],
+        process_ed_triage_df,
+        [
+            ("ed/edstays", ["stay_id", "intime", "subject_id"]),
+            ("hosp/patients", ["subject_id", "gender", "anchor_year", "anchor_age"]),
+        ],
     ),
     "ed/vitalsign": (
         process_ed_vitals_with_time_df,

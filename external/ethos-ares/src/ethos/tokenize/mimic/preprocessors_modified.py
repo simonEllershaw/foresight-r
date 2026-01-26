@@ -348,7 +348,7 @@ class DiagnosesData:
 
 class ProcedureData:
     @staticmethod
-    @MatchAndRevise(prefix="HOSPITAL_PROCEDURE")
+    @MatchAndRevise(prefix="HOSPITAL_PROCEDURE//")
     def prepare_codes_for_processing(df: pl.DataFrame) -> pl.DataFrame:
         return (
             df.with_columns(pl.col.code.str.split("//"))
@@ -397,7 +397,7 @@ class ProcedureData:
 
 class MedicationData:
     @staticmethod
-    @MatchAndRevise(prefix="HOSPITAL_MEDICATION", needs_vocab=True)
+    @MatchAndRevise(prefix="HOSPITAL_MEDICATION//", needs_vocab=True)
     def convert_to_atc(
         df: pl.DataFrame, vocab: list[str] | None = None
     ) -> pl.DataFrame:
@@ -517,28 +517,6 @@ class LabData:
             )
             .explode("code")
         )
-
-class PatientFluidOutputData:
-    @staticmethod
-    @MatchAndRevise(prefix="SUBJECT_FLUID_OUTPUT//", needs_vocab=True)
-    def make_quantiles(
-        df: pl.DataFrame, vocab: list[str] | None = None
-    ) -> pl.DataFrame:
-        if vocab is not None:
-            df.filter(pl.col("code").is_in(vocab))
-
-        prefix = "SUBJECT_FLUID_OUTPUT//"
-        return (
-            df.filter(pl.col("numeric_value").is_not_null())
-            .with_columns(
-                pl.concat_list(
-                    "code",
-                    pl.lit(prefix + "Q//") + pl.col("code").str.slice(len(prefix)),
-                )
-            )
-            .explode("code")
-        )
-
 
 class EdData:
     @staticmethod

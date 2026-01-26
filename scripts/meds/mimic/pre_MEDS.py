@@ -232,7 +232,7 @@ def _add_age_column(df: pl.LazyFrame, time_column: str = "admittime") -> pl.Lazy
     return df.with_columns(
         (
             pl.col(time_column).str.strptime(pl.Datetime)
-            - pl.col("year_of_birth").cast(pl.Int32).cast(pl.Date)
+            - (pl.col("year_of_birth").cast(pl.String) + "-01-01").str.strptime(pl.Date)
         )
         .dt.total_days()
         .truediv(365.25)

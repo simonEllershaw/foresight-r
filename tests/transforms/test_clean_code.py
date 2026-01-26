@@ -221,7 +221,8 @@ def test_clean_code_no_patterns_raises_error():
     cfg = DictConfig({"column": "code", "patterns": []})
 
     with pytest.raises(
-        ValueError, match="At least one pattern, strip_whitespace, or to_titlecase"
+        ValueError,
+        match="At least one pattern, strip_whitespace, to_titlecase, or to_uppercase",
     ):
         clean_code_fntr(cfg)
 
@@ -426,3 +427,84 @@ def test_clean_code_to_titlecase_with_null():
     assert result["code"][0] == "Upper"
     assert result["code"][1] is None
     assert result["code"][2] == "Lower"
+
+
+def test_clean_code_to_uppercase():
+    """Test that to_uppercase converts strings to uppercase."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2, 3, 4],
+            "time": [1, 2, 3, 4],
+            "code": ["lower case", "UPPER CASE", "Mixed Case String", "already upper"],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [],
+            "to_uppercase": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"].to_list() == [
+        "LOWER CASE",
+        "UPPER CASE",
+        "MIXED CASE STRING",
+        "ALREADY UPPER",
+    ]
+
+
+def test_clean_code_to_uppercase_with_patterns():
+    """Test to_uppercase combined with patterns."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2],
+            "time": [1, 2],
+            "code": ["lab//glucose", "admission//emergency room"],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [
+                {"pattern": "//", "replacement": " "},
+            ],
+            "to_uppercase": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"].to_list() == ["LAB GLUCOSE", "ADMISSION EMERGENCY ROOM"]
+
+
+def test_clean_code_to_uppercase_with_null():
+    """Test that to_uppercase handles null values."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 2, 3],
+            "time": [1, 2, 3],
+            "code": ["lower", None, "UPPER"],
+        }
+    ).lazy()
+
+    cfg = DictConfig(
+        {
+            "column": "code",
+            "patterns": [],
+            "to_uppercase": True,
+        }
+    )
+
+    fn = clean_code_fntr(cfg)
+    result = fn(test_df).collect()
+
+    assert result["code"][0] == "LOWER"
+    assert result["code"][1] is None
+    assert result["code"][2] == "UPPER"

@@ -50,19 +50,16 @@ stage_configs:
         - TRANSFER
       DIAGNOSIS_RELATED_GROUPS:
         - HCFA
-  # clean_code:
-  #   _script: custom-meds-transform-clean-code
-  #   column: code
-  #   strip_whitespace: true
-  #   # Do in pre-MEDS step to avoid issues with units/acronyms
-  #   to_titlecase: false
-  #   patterns:
-  #     - pattern: "//"
-  #       replacement: " "
-  #     - pattern: "UNK"
-  #       replacement: "Unknown"
-  #     - pattern: '(\s){2,}'
-  #       replacement: " "
+  clean_code:
+    _script: custom-meds-transform-clean-code
+    column: code
+    strip_whitespace: true
+    # Do in pre-MEDS step to avoid issues with units/acronyms
+    # to_titlecase: false
+    to_uppercase: true
+    patterns:
+      - pattern: '(\s){2,}'
+        replacement: "_"
   # calculate_age:
   #   _script: custom-meds-transform-calculate-age
   #   birth_code: "Born"

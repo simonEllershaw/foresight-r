@@ -28,17 +28,7 @@ class DeathData:
 
 class DemographicData:
     @staticmethod
-    @MatchAndRevise(prefix=ST.ADMISSION)
-    def retrieve_demographics_from_hosp_adm(df: pl.DataFrame) -> pl.DataFrame:
-        return df.with_columns(
-            code=pl.concat_list("code", pl.lit("MARITAL_STATUS"), pl.lit("RACE")),
-            text_value=pl.concat_list(
-                "text_value", pl.col("marital_status"), pl.col("race")
-            ),
-        ).explode("code", "text_value")
-
-    @staticmethod
-    @MatchAndRevise(prefix="HOPSITAL_ADMISSION//RACE//", apply_vocab=True)
+    @MatchAndRevise(prefix="HOSPITAL_ADMISSION//RACE", apply_vocab=True)
     def process_race(df: pl.DataFrame) -> pl.DataFrame:
         """Changes: Remove logic for handling multiple race entries. Just treat as seperate events"""
         race_unknown = ["UNKNOWN", "UNABLE TO OBTAIN", "PATIENT DECLINED TO ANSWER"]
@@ -68,7 +58,7 @@ class DemographicData:
             )
             .with_columns(
                 code=(
-                    pl.lit("HOPSITAL_ADMISSION//RACE//")
+                    pl.lit("HOSPITAL_ADMISSION//RACE//")
                     + pl.when(pl.col("code").is_null())
                     .then(
                         pl.col("text_value").str.slice(
@@ -81,28 +71,13 @@ class DemographicData:
             .select(df.columns)
         )
 
-    @staticmethod
-    @MatchAndRevise(prefix="HOPSITAL_ADMISSION//MARITAL_STATUS//", apply_vocab=True)
-    def process_marital_status(df: pl.DataFrame) -> pl.DataFrame:
-        return df.drop_nulls("text_value").with_columns(
-            code=pl.lit("HOPSITAL_ADMISSION//MARITAL_STATUS") + pl.col("text_value")
-        )
-
 
 class InpatientData:
     @staticmethod
-    @MatchAndRevise(prefix="DRG", apply_vocab=True)
-    def process_drg_codes(df: pl.DataFrame) -> pl.DataFrame:
-        return df.filter(pl.col.code.str.starts_with("DRG//HCFA")).with_columns(
-            code=pl.lit("DRG//")
-            + pl.col.code.str.split("//").list[2].cast(int).cast(str)
-        )
-
-    @staticmethod
-    @MatchAndRevise(prefix="HOPSITAL_ADMISSION//TYPE//")
+    @MatchAndRevise(prefix="HOSPITAL_ADMISSION//TYPE//")
     def process_hospital_admissions(df: pl.DataFrame) -> pl.DataFrame:
         """
-        Changes: Shifts admission_type to index 2 and insurance event dealt with on its own
+        Changes: Shifts admission_type to index 2. Insurance event dealt as simple text event
         """
         scheduled_admissions = ["ELECTIVE", "SURGICAL SAME DAY ADMISSION"]
         return (
@@ -113,7 +88,7 @@ class InpatientData:
             .with_columns(
                 pl.concat_list(
                     "code",
-                    pl.lit("HOPSITAL_ADMISSION//TYPE//")
+                    pl.lit("HOSPITAL_ADMISSION//TYPE//")
                     + pl.when(
                         pl.col("text_value").str.ends_with("EMER.")
                         | (pl.col("text_value") == "URGENT")
@@ -202,6 +177,22 @@ class InpatientData:
             )
             .drop("drg_missing")
             .explode("code")
+        )
+
+class TextData:
+    @staticmethod
+    @MatchAndRevise(
+        prefix = [
+            "HOSPITAL_ADMISSION//INSURANCE",
+            "HOSPITAL_ADMISSION//MARITAL_STATUS",
+            "HOSPITAL_ADMISSION//GENDER",
+            "EMERGENCY_DEPARTMENT_TRIAGE//GENDER",
+
+        ]
+    )
+    def process_simple_text_events(df: pl.DataFrame) -> pl.DataFrame:
+        return df.drop_nulls("text_value").with_columns(
+            code=pl.col("code") + pl.lit("//") + pl.col("text_value")
         )
 
 
@@ -508,25 +499,7 @@ class ICUStayData:
         )
 
 
-class TransferData:
-    @staticmethod
-    @MatchAndRevise(prefix="TRANSFER_TO", apply_vocab=True)
-    def retain_only_transfer_and_admit_types(df: pl.DataFrame) -> pl.DataFrame:
-        return (
-            df.with_columns(pl.col.code.str.split("//"))
-            .filter(pl.col.code.list[1].is_in(["transfer", "admit"]))
-            .with_columns(
-                code=pl.lit("TRANSFER//") + pl.col.code.list[2].fill_null("UNKNOWN")
-            )
-        )
-
-
 class LabData:
-    @staticmethod
-    @MatchAndRevise(prefix="LABORATORY_RESULT//", apply_vocab=True)
-    def retain_only_test_with_numeric_result(df: pl.DataFrame) -> pl.DataFrame:
-        return df.filter(pl.col("numeric_value").is_not_null())
-
     @staticmethod
     @MatchAndRevise(prefix="LABORATORY_RESULT//", needs_counts=True, needs_vocab=True)
     def make_quantiles(
@@ -544,15 +517,6 @@ class LabData:
             )
             .explode("code")
         )
-
-
-class HCPCSData:
-    @staticmethod
-    @MatchAndRevise(prefix="HCPCS//", apply_vocab=True)
-    def unify_names(df: pl.DataFrame) -> pl.DataFrame:
-        """This will just unify the code names."""
-        return df
-
 
 class PatientFluidOutputData:
     @staticmethod

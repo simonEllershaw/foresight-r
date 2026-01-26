@@ -8,7 +8,6 @@ from .preprocessors_modified import (
     LabData,
     MeasurementData,
     MedicationData,
-    PatientFluidOutputData,
     ProcedureData,
     TextData
 )

@@ -6,9 +6,55 @@ from ..patterns import MatchAndRevise
 from ..utils import apply_vocab_to_multitoken_codes, unify_code_names
 
 
+class PrefixRowData:
+    @staticmethod
+    def add_prefix_rows(df: pl.DataFrame) -> pl.DataFrame:
+        """
+        For any rows with the same subject_id, time, and prefix (before first "//"),
+        add a new row directly before these rows with just the prefix as the code.
+        Other columns (numeric_value, text_value, etc.) are null in the new row.
+        
+        Assumes df is already sorted by subject_id and time for efficiency.
+        """
+        group_cols = ["subject_id", "time"]
+        
+        # Add row index and extract prefix
+        df_indexed = df.with_row_index("_idx").with_columns(
+            pl.col("code").str.split("//").list.first().alias("_prefix")
+        )
+        
+        # Get first row index for each (subject_id, time, prefix) group
+        # Use index - 0.5 to place prefix row before the group
+        prefix_rows = (
+            df_indexed.group_by(group_cols + ["_prefix"])
+            .agg(pl.col("_idx").min().alias("_idx"))
+            .with_columns(
+                (pl.col("_idx") - 0.5).alias("_idx"),
+                (pl.lit("HEADER//") + pl.col("_prefix")).alias("code"),
+            )
+            .drop("_prefix")
+        )
+        
+        # Ensure prefix_rows has all columns from df
+        for col in df.columns:
+            if col not in prefix_rows.columns:
+                prefix_rows = prefix_rows.with_columns(
+                    pl.lit(None).cast(df.schema[col]).alias(col)
+                )
+        
+        # Concatenate, sort by index, and drop helper columns
+        return (
+            pl.concat([
+                prefix_rows.select(["_idx"] + df.columns), 
+                df_indexed.drop("_prefix").with_columns(pl.col("_idx").cast(pl.Float64))
+            ])
+            .sort("_idx")
+            .drop("_idx")
+        )
+
 class DeathData:
     @staticmethod
-    @MatchAndRevise(prefix=["DEATH//", ST.DISCHARGE], needs_resorting=True)
+    @MatchAndRevise(prefix=["DEATH//", "HOSPITAL_DISCHARGE//"], needs_resorting=True)
     def place_death_before_dc_if_same_time(df: pl.DataFrame) -> pl.DataFrame:
         gb_cols = MatchAndRevise.sort_cols
         idx_col = MatchAndRevise.index_col
@@ -95,8 +141,7 @@ class InpatientData:
                 pl.col.code.str.split("//").list[2].alias("text_value"),
             )
             .with_columns(
-                pl.concat_list(
-                    "code",
+                code=(
                     pl.lit("HOSPITAL_ADMISSION//TYPE//")
                     + pl.when(
                         pl.col("text_value").str.ends_with("EMER.")
@@ -105,14 +150,13 @@ class InpatientData:
                     .then(pl.lit("EMERGENCY"))
                     .when(pl.col("text_value").is_in(scheduled_admissions))
                     .then(pl.lit("SCHEDULED"))
-                    .otherwise(pl.lit("OBSERVATION")),
-                ).alias("code")
+                    .otherwise(pl.lit("OBSERVATION"))
+                )
             )
-            .explode("code")
         )
 
     @staticmethod
-    @MatchAndRevise(prefix=[ST.DISCHARGE, "HOSPITAL_DIAGNOSIS//", "EMERGENCY_DEPARTMENT_DIAGNOSIS//", "DIAGNOSIS_RELATED_GROUPS//"])
+    @MatchAndRevise(prefix=["HOSPITAL_DISCHARGE//", "HOSPITAL_DIAGNOSIS//", "EMERGENCY_DEPARTMENT_DIAGNOSIS//", "DIAGNOSIS_RELATED_GROUPS//"])
     def process_hospital_discharges(df: pl.DataFrame) -> pl.DataFrame:
         """Currently must be run before processing diagnoses."""
         discharge_facilities = [
@@ -130,7 +174,7 @@ class InpatientData:
         drg_following_diag = is_diagnosis & ~pl.col.code.str.starts_with(
             "DIAGNOSIS_RELATED_GROUPS//"
         ).shift(-1, fill_value=False)
-        drg_following_disch = pl.col.code.str.starts_with(ST.DISCHARGE)
+        drg_following_disch = pl.col.code.str.starts_with("HOSPITAL_DISCHARGE//")
 
         if "stay_id" in df.columns:
             # This means that it is MIMIC with ED extension, and diagnoses in addition come from
@@ -140,30 +184,30 @@ class InpatientData:
             ).shift(-1, fill_value=False)
 
             drg_following_disch &= pl.col.code.str.starts_with(
-                ST.DISCHARGE
+                "HOSPITAL_DISCHARGE//"
             ).shift(-1, fill_value=True) | pl.col.stay_id.is_not_null().shift(
                 -1, fill_value=True
             )
         else:
             drg_following_diag &= ~is_diagnosis.shift(-1, fill_value=False)
             drg_following_disch &= pl.col.code.str.starts_with(
-                ST.DISCHARGE
+                "HOSPITAL_DISCHARGE//"
             ).shift(-1, fill_value=True)
 
         drg_missing_cond = drg_following_diag | drg_following_disch
 
         return (
             df.with_columns(
-                text_value=pl.when(pl.col.code.str.starts_with(ST.DISCHARGE))
+                text_value=pl.when(pl.col.code.str.starts_with("HOSPITAL_DISCHARGE//"))
                 # NOTE: Not super clear why getting oob here now...
                 .then(pl.col.code.str.split("//").list.get(2, null_on_oob=True))
                 .otherwise("text_value")
             )
             .with_columns(
-                code=pl.when(pl.col.code.str.starts_with(ST.DISCHARGE))
+                code=pl.when(pl.col.code.str.starts_with("HOSPITAL_DISCHARGE//"))
                 .then(
                     pl.concat_list(
-                        pl.lit(ST.DISCHARGE),
+                        pl.lit("HOSPITAL_DISCHARGE"),
                         (
                             pl.lit("DISCHARGE_LOCATION//")
                             + pl.when(pl.col("text_value").is_in(discharge_facilities))
@@ -200,8 +244,8 @@ class TextData:
         ]
     )
     def process_simple_text_events(df: pl.DataFrame) -> pl.DataFrame:
-        return df.drop_nulls("text_value").with_columns(
-            code=pl.col("code") + pl.lit("//") + pl.col("text_value")
+        return df.with_columns(
+            code=pl.col("text_value")
         )
 
 
@@ -220,6 +264,7 @@ class MeasurementData:
             "EMERGENCY_DEPARTMENT_TRIAGE//HEART_RATE",
             "EMERGENCY_DEPARTMENT_TRIAGE//RESPIRATORY_RATE",
             "EMERGENCY_DEPARTMENT_TRIAGE//O2_SATURATION",
+            "EMERGENCY_DEPARTMENT_TRIAGE//SEVERITY_SCORE"
             # Include Blood Pressure as simple measurments now seperate events
             "EMERGENCY_DEPARTMENT_TRIAGE//SYSTOLIC_BLOOD_PRESSURE",
             "EMERGENCY_DEPARTMENT_TRIAGE//DIASTOLIC_BLOOD_PRESSURE",
@@ -231,17 +276,16 @@ class MeasurementData:
         ]
     )
     def process_simple_measurements(df: pl.DataFrame) -> pl.DataFrame:
-        return (
-            df.filter(pl.col("numeric_value").is_not_null())
-            .with_columns(
+        return df.with_columns(
+                # Extract just the code without prefix (e.g., HOSPITAL_ADMISSION//AGE -> AGE)
+                code=pl.col("code").str.split("//").list.last()
+            ).with_columns(
                 code=pl.concat_list(
                     pl.col("code"),
-                    # Replaces 1st occurrence of // with //Q//
-                    pl.col("code").str.replace("//", "//Q//", literal=True),
+                    # Add Q// prefix for quantile version
+                    pl.lit("Q//") + pl.col("code"),
                 )
-            )
-            .explode("code")
-        )
+            ).explode("code")
 
     @staticmethod
     @MatchAndRevise(prefix=["EMERGENCY_DEPARTMENT_VITAL_SIGNS//PAIN", "EMERGENCY_DEPARTMENT_TRIAGE//PAIN"])
@@ -285,8 +329,8 @@ class MeasurementData:
             .filter(pl.col.numeric_value.is_between(0, 10))
             .with_columns(
                 code=pl.concat_list(
-                    pl.col("code"),
-                    pl.col("code").str.replace("//", "//Q//", literal=True),
+                    pl.lit("PAIN_SCORE"),
+                    pl.lit("Q//PAIN_SCORE"),
                 )
             )
             .explode("code")
@@ -485,7 +529,7 @@ class MedicationData:
 
 class ICUStayData:
     @staticmethod
-    @MatchAndRevise(prefix="ICU_")
+    @MatchAndRevise(prefix=["ICU_ADMISSION//", "ICU_DISCHARGE//"])
     def process(df: pl.DataFrame) -> pl.DataFrame:
         """Changes: Don't include SOFA scores"""
         return (
@@ -520,13 +564,12 @@ class LabData:
         # as the cover most of all the labs in the dataset
         known_lab_names = list(counts.keys())[:200] if vocab is None else vocab
         return (
-            df.filter(unify_code_names(pl.col("code")).is_in(known_lab_names))
+            df.filter(pl.col("code").is_in(known_lab_names))
             .with_columns(
-                pl.concat_list("code", pl.lit("LABORATORY_RESULT//Q//") + pl.col("code").str.slice(5))
+                pl.concat_list("code", pl.lit("Q//LABORATORY_RESULT//") + pl.col("code").str.slice(5))
             )
             .explode("code")
         )
-
 class EdData:
     @staticmethod
     @MatchAndRevise(prefix="EMERGENCY_DEPARTMENT_REGISTRATION//")
@@ -540,17 +583,3 @@ class EdData:
                 .otherwise("text_value"),
             )
         ).explode("code")
-
-    @staticmethod
-    @MatchAndRevise(prefix="EMERGENCY_DEPARTMENT_TRIAGE//SEVERITY_SCORE")
-    def process_ed_acuity(df: pl.DataFrame) -> pl.DataFrame:
-        return (
-            df.filter(pl.col("numeric_value").is_not_null())
-            .with_columns(
-                code=pl.concat_list(
-                    "code",
-                    pl.lit("Q") + pl.col("numeric_value").cast(pl.UInt8).cast(pl.Utf8),
-                )
-            )
-            .explode("code")
-        )

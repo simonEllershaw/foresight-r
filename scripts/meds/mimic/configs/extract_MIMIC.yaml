@@ -39,9 +39,9 @@ stage_configs:
   filter_null_values:
     _script: custom-meds-transform-filter-null-values
     prefixes:
-      # - "Emergency Department Vital Signs"
-      # - "Emergency Department Triage"
-      - "Laboratory Result"
+      - "EMERGENCY_DEPARTMENT_TRIAGE"
+      - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
+      - "LABORATORY_RESULT"
   filter_by_text_value:
     _script: custom-meds-transform-filter-by-text-value
     prefix_to_text_values:

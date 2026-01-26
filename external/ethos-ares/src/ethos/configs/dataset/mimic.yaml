@@ -16,6 +16,7 @@ stages:
 
   - name: preprocessing
     transforms:
+      - PrefixRowData.add_prefix_rows
       # - LabData.retain_only_test_with_numeric_result # Done in extract_MIMIC
       # - TransferData.retain_only_transfer_and_admit_types # TODO in extract_MIMIC
       # - DemographicData.retrieve_demographics_from_hosp_adm # No longer treated as static variables
@@ -45,7 +46,7 @@ stages:
       # - PatientFluidOutputData.make_quantiles # Not included in MEDS schema
       # - BMIData.make_quantiles # BMI dealt with as simple measurement
       - EdData.process_ed_registration
-      - EdData.process_ed_acuity
+      # - EdData.process_ed_acuity # Handled as simple measurement
       - MeasurementData.process_simple_measurements
       - MeasurementData.process_pain
       # - MeasurementData.process_blood_pressure # Treat as simple measurements now systolic and diastolic are processed seperately
@@ -59,11 +60,7 @@ stages:
   - name: Quantizator
     params:
       code_prefixes:
-        - EMERGENCY_DEPARTMENT_VITAL_SIGNS//Q
-        - EMERGENCY_DEPARTMENT_TRIAGE//Q
-        - OBSERVATION_MEDICAL_RECORD//Q
-        - HOSPITAL_ADMISSION//Q
-        # - SUBJECT_FLUID_OUTPUT//Q// # Not included in MEDS schema
+        - Q//
     agg_to: ${output_dir}/${quantiles_fn}
     agg_params:
       num_quantiles: ${num_quantiles}

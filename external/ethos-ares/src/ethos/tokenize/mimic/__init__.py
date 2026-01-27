@@ -1,4 +1,5 @@
 from .preprocessors_modified import (
+    DropBirthData,
     PrefixRowData,
     DeathData,
     DemographicData,

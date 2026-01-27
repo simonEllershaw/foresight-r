@@ -5,6 +5,7 @@ Summary of Changes from Original (preprocessors.py):
 =====================================================
 
 New Classes:
+- DropBirthData: Drops all rows with "BIRTH" prefix (age events added at each admission and triage).
 - PrefixRowData: Adds "HEADER//" prefix rows before groups with same subject_id, 
   time, and code prefix for better event grouping.
 - TextData: Handles simple text events (INSURANCE, MARITAL_STATUS, GENDER) that 
@@ -117,6 +118,14 @@ class PrefixRowData:
             .sort("_idx")
             .drop("_idx")
         )
+
+class DropBirthData:
+    @staticmethod
+    @MatchAndRevise(prefix="BIRTH")
+    def drop_birth_rows(df: pl.DataFrame) -> pl.DataFrame:
+        """Drop all rows with BIRTH prefix."""
+        return df.clear()
+
 
 class DeathData:
     @staticmethod

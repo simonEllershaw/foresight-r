@@ -18,6 +18,7 @@ stages:
 
   - name: preprocessing
     transforms:
+      - DropBirthData.drop_birth_rows # Added: Drop all BIRTH rows
       - PrefixRowData.add_prefix_rows # Added
       # - LabData.retain_only_test_with_numeric_result # Done in extract_MIMIC
       # - TransferData.retain_only_transfer_and_admit_types # Done in extract_MIMIC

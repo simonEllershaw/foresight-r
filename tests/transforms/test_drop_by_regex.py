@@ -1,14 +1,14 @@
-"""Tests for filter_codes_by_regex stage."""
+"""Tests for drop_by_regex stage."""
 
 import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.filter_codes_by_regex import filter_codes_by_regex_fntr
+from foresight_r.transforms.drop_by_regex import drop_by_regex_fntr
 
 
-def test_filter_single_pattern():
-    """Rows matching a single regex pattern are kept."""
+def test_drop_single_pattern():
+    """Rows matching a single regex pattern are DROPPED."""
     df = pl.DataFrame(
         {
             "code": ["MATCH", "NOPE", "PARTIAL_MATCH_SUFFIX"],
@@ -17,16 +17,17 @@ def test_filter_single_pattern():
     ).lazy()
 
     cfg = DictConfig({"patterns": ["MATCH"]})
-    fn = filter_codes_by_regex_fntr(cfg)
+    fn = drop_by_regex_fntr(cfg)
     result = fn(df).collect()
 
-    # Matches "MATCH" and "PARTIAL_MATCH_SUFFIX"
-    assert result.shape[0] == 2
-    assert sorted(result["val"].to_list()) == [1, 3]
+    # Matches "MATCH" and "PARTIAL_MATCH_SUFFIX" -> DROPPED
+    # "NOPE" -> KEPT
+    assert result.shape[0] == 1
+    assert result["val"][0] == 2
 
 
-def test_filter_multiple_patterns():
-    """Rows matching ANY of the multiple regex patterns are kept."""
+def test_drop_multiple_patterns():
+    """Rows matching ANY of the multiple regex patterns are DROPPED."""
     df = pl.DataFrame(
         {
             "code": ["A_123", "B_456", "C_789", "D_000"],
@@ -35,16 +36,17 @@ def test_filter_multiple_patterns():
     ).lazy()
 
     cfg = DictConfig({"patterns": ["A_.*", "B_.*"]})
-    fn = filter_codes_by_regex_fntr(cfg)
+    fn = drop_by_regex_fntr(cfg)
     result = fn(df).collect()
 
-    # Matches A_123 and B_456
+    # Matches A_123 and B_456 -> DROPPED
+    # C_789 and D_000 -> KEPT
     assert result.shape[0] == 2
-    assert sorted(result["val"].to_list()) == [1, 2]
+    assert sorted(result["val"].to_list()) == [3, 4]
 
 
-def test_filter_no_matches():
-    """Rows matching NONE of the patterns are dropped."""
+def test_drop_no_matches():
+    """Rows matching NONE of the patterns are KEPT."""
     df = pl.DataFrame(
         {
             "code": ["X", "Y", "Z"],
@@ -53,13 +55,13 @@ def test_filter_no_matches():
     ).lazy()
 
     cfg = DictConfig({"patterns": ["A", "B"]})
-    fn = filter_codes_by_regex_fntr(cfg)
+    fn = drop_by_regex_fntr(cfg)
     result = fn(df).collect()
 
-    assert result.shape[0] == 0
+    assert result.shape[0] == 3
 
 
-def test_filter_custom_column():
+def test_drop_custom_column():
     """Filter works on a specified column other than 'code'."""
     df = pl.DataFrame(
         {
@@ -68,16 +70,16 @@ def test_filter_custom_column():
         }
     ).lazy()
 
-    cfg = DictConfig({"patterns": ["KEEP"], "column": "target"})
-    fn = filter_codes_by_regex_fntr(cfg)
+    cfg = DictConfig({"patterns": ["DROP"], "column": "target"})
+    fn = drop_by_regex_fntr(cfg)
     result = fn(df).collect()
 
     assert result.shape[0] == 1
     assert result["target"][0] == "KEEP_ME"
 
 
-def test_filter_empty_config_raises_error():
+def test_drop_empty_config_raises_error():
     """ValueError is raised if patterns list is empty."""
     cfg = DictConfig({"patterns": []})
     with pytest.raises(ValueError, match="Must provide at least one pattern"):
-        filter_codes_by_regex_fntr(cfg)
+        drop_by_regex_fntr(cfg)

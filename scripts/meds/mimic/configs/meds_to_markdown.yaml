@@ -24,12 +24,10 @@ etl_metadata:
   dataset_version: 1.0
 
 stage_configs:
-  filter_codes_by_regex:
-    _script: custom-meds-transform-filter-codes-by-regex
+  drop_by_regex:
+    _script: custom-meds-transform-drop-by-regex
     patterns:
-      - "^AGE//" # We add age as a header to each event group so don't need as own event
-  create_prefix_column:
-    _script: custom-meds-transform-create-prefix-column
+      - "^EMERGENCY_DEPARTMENT_TRIAGE//AGE" # We add age as a header to each event group so don't need as own event
   append_values:
     _script: custom-meds-transform-append-values
     join_char: " "
@@ -38,10 +36,16 @@ stage_configs:
     column: code
     to_titlecase: true
     patterns:
-      - pattern: '_|\/\/'
+      - pattern: '^(.*?)//'
+        replacement: '\${0}FIRSTSLASHMARKER'
+      - pattern: '_|//'
         replacement: " "
+      - pattern: 'FIRSTSLASHMARKER'
+        replacement: '//'
       - pattern: '(\s){2,}'
         replacement: " "
+  create_prefix_column:
+    _script: custom-meds-transform-create-prefix-column
   calculate_age:
     _script: custom-meds-transform-calculate-age
     birth_prefix: "Birth"
@@ -54,10 +58,10 @@ stage_configs:
     _script: custom-meds-transform-convert-to-markdown
 
 stages:
-  - filter_codes_by_regex
-  - create_prefix_column
+  - drop_by_regex
   - append_values
   - clean_code
+  - create_prefix_column
   - calculate_age
   - add_time_column
   - convert_to_markdown

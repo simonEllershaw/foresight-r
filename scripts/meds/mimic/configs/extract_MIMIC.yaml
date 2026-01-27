@@ -56,7 +56,7 @@ stage_configs:
     strip_whitespace: true
     to_uppercase: true
     patterns:
-      - pattern: '(\s){2,}'
+      - pattern: '(\s){1,}'
         replacement: "_"
   # calculate_age:
   #   _script: custom-meds-transform-calculate-age

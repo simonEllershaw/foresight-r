@@ -1,3 +1,68 @@
+"""
+Modified version of preprocessors.py with changes for Foresight data processing.
+
+Summary of Changes from Original (preprocessors.py):
+=====================================================
+
+New Classes:
+- PrefixRowData: Adds "HEADER//" prefix rows before groups with same subject_id, 
+  time, and code prefix for better event grouping.
+- TextData: Handles simple text events (INSURANCE, MARITAL_STATUS, GENDER) that 
+  were previously embedded in other processors.
+
+Removed Classes:
+- BMIData: BMI processing removed entirely.
+- TransferData: Transfer processing removed.
+- HCPCSData: HCPCS code processing removed.
+- PatientFluidOutputData: Patient fluid output processing removed.
+
+Changed Prefixes (to match new MEDS event naming convention):
+- DeathData: [ST.DEATH, ST.DISCHARGE] -> ["DEATH//", "HOSPITAL_DISCHARGE//"]
+- DemographicData.process_race: "RACE" -> "HOSPITAL_ADMISSION//RACE"
+- InpatientData.process_drg_codes: "DRG" -> "DIAGNOSIS_RELATED_GROUPS//"
+- InpatientData.process_hospital_admissions: ST.ADMISSION -> "HOSPITAL_ADMISSION//TYPE//"
+- InpatientData.process_hospital_discharges: Updated to new naming convention
+- MeasurementData: Added ED-specific prefixes (EMERGENCY_DEPARTMENT_VITAL_SIGNS, 
+  EMERGENCY_DEPARTMENT_TRIAGE, OBSERVATION_MEDICAL_RECORD, AGE)
+- DiagnosesData: "DIAGNOSIS//ICD//" -> ["EMERGENCY_DEPARTMENT_DIAGNOSIS//ICD//", 
+  "HOSPITAL_DIAGNOSIS//ICD//"]
+- ProcedureData: "PROCEDURE" -> "HOSPITAL_PROCEDURE//"
+- MedicationData: "MEDICATION" -> ["HOSPITAL_MEDICATION//", 
+  "EMERGENCY_DEPARTMENT_MEDICATION//"]
+- ICUStayData: "ICU_" -> ["ICU_ADMISSION//", "ICU_DISCHARGE//"]
+- LabData: "LAB//" -> "LABORATORY_RESULT//"
+- EdData: "ED_REGISTRATION" -> "EMERGENCY_DEPARTMENT_REGISTRATION//"
+
+Modified Behavior:
+
+DemographicData:
+- Removed retrieve_demographics_from_hosp_adm method.
+- Removed race priority/deduplication logic - multiple races now treated as 
+  separate events.
+- Removed process_marital_status method (moved to TextData).
+
+InpatientData:
+- process_drg_codes: Removed HCFA filter (moved to MIMIC Extract).
+- process_hospital_admissions: Simplified - no longer creates list of codes.
+  Admission type now at index 2. Insurance handled separately in TextData.
+
+MeasurementData:
+- Removed process_blood_pressure method - BP now handled as simple measurements.
+- Simplified output prefixes (removed "VITAL//" prefix, uses "Q//" for quantiles).
+
+MedicationData:
+- Simplified code parsing logic (fixed potential bug in original).
+
+ICUStayData:
+- Removed SOFA score handling.
+
+LabData:
+- Removed retain_only_test_with_numeric_result method.
+- Removed unify_code_names call in make_quantiles.
+
+EdData:
+- Removed process_ed_acuity method.
+"""
 import numpy as np
 import polars as pl
 
@@ -10,6 +75,7 @@ class PrefixRowData:
     @staticmethod
     def add_prefix_rows(df: pl.DataFrame) -> pl.DataFrame:
         """
+        Added:
         For any rows with the same subject_id, time, and prefix (before first "//"),
         add a new row directly before these rows with just the prefix as the code.
         Other columns (numeric_value, text_value, etc.) are null in the new row.
@@ -132,7 +198,8 @@ class InpatientData:
     @MatchAndRevise(prefix="HOSPITAL_ADMISSION//TYPE//")
     def process_hospital_admissions(df: pl.DataFrame) -> pl.DataFrame:
         """
-        Changes: Shifts admission_type to index 2. Insurance event dealt as simple text event
+        Changes: Shifts admission_type to index 2. Insurance event dealt as simple text event.
+        HOSPITAL_ADMISSION token added as header in PrefixRowData
         """
         scheduled_admissions = ["ELECTIVE", "SURGICAL SAME DAY ADMISSION"]
         return (
@@ -245,7 +312,7 @@ class TextData:
     )
     def process_simple_text_events(df: pl.DataFrame) -> pl.DataFrame:
         return df.with_columns(
-            code=pl.col("text_value")
+            code=pl.col("code").str.split("//").list.last() + pl.lit("//") + pl.col("text_value")
         )
 
 
@@ -291,8 +358,7 @@ class MeasurementData:
     @MatchAndRevise(prefix=["EMERGENCY_DEPARTMENT_VITAL_SIGNS//PAIN", "EMERGENCY_DEPARTMENT_TRIAGE//PAIN"])
     def process_pain(df: pl.DataFrame) -> pl.DataFrame:
         return (
-            df.filter(pl.col.text_value.is_not_null())
-            .with_columns(
+            df.with_columns(
                 pl.col("text_value")
                 .str.to_lowercase()
                 .str.strip_chars(' +"')
@@ -329,8 +395,8 @@ class MeasurementData:
             .filter(pl.col.numeric_value.is_between(0, 10))
             .with_columns(
                 code=pl.concat_list(
-                    pl.lit("PAIN_SCORE"),
-                    pl.lit("Q//PAIN_SCORE"),
+                    pl.lit("PAIN"),
+                    pl.lit("Q//PAIN"),
                 )
             )
             .explode("code")
@@ -465,6 +531,8 @@ class MedicationData:
         df = (
             df.with_columns(pl.col("code").str.split("//"))
             .with_columns(
+                # Think this was a bug in the original code
+                # Either way this is a simplier version!
                 pl.col("code").list[2].alias("code"), # Event type
                 pl.col("code").list[1].alias("text_value"), # drug name
             )
@@ -556,6 +624,7 @@ class LabData:
         # as the cover most of all the labs in the dataset
         known_lab_names = list(counts.keys())[:200] if vocab is None else vocab
         return (
+            # Removed unify_code_names call as matching was failing
             df.filter(pl.col("code").is_in(known_lab_names))
             .with_columns(
                 pl.concat_list("code", pl.lit("Q//LABORATORY_RESULT//") + pl.col("code").str.slice(5))

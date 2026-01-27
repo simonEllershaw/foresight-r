@@ -1,3 +1,5 @@
+# Changes from original ethos schemas are commented
+
 name: mimic
 stages:
   # - name: filter_codes
@@ -16,7 +18,7 @@ stages:
 
   - name: preprocessing
     transforms:
-      - PrefixRowData.add_prefix_rows
+      - PrefixRowData.add_prefix_rows # Added
       # - LabData.retain_only_test_with_numeric_result # Done in extract_MIMIC
       # - TransferData.retain_only_transfer_and_admit_types # Done in extract_MIMIC
       # - DemographicData.retrieve_demographics_from_hosp_adm # No longer treated as static variables

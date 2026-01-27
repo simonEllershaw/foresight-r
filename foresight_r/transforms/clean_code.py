@@ -71,15 +71,15 @@ def clean_code_fntr(
         # Start with the column
         cleaned_col = pl.col(column)
 
+        # Strip leading/trailing whitespace if enabled
+        if strip_whitespace:
+            cleaned_col = cleaned_col.str.strip_chars()
+
         # Apply each replacement pattern in sequence
         for pattern_cfg in patterns:
             pattern = pattern_cfg["pattern"]
             replacement = pattern_cfg["replacement"]
             cleaned_col = cleaned_col.str.replace_all(pattern, replacement)
-
-        # Strip leading/trailing whitespace if enabled
-        if strip_whitespace:
-            cleaned_col = cleaned_col.str.strip_chars()
 
         # Convert to title case if enabled
         if to_titlecase:

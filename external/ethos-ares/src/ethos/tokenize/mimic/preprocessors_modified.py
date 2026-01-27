@@ -465,16 +465,8 @@ class MedicationData:
         df = (
             df.with_columns(pl.col("code").str.split("//"))
             .with_columns(
-                pl.when(pl.col("code").list[2] == "Administered")
-                .then(None)
-                .when(pl.col("code").list[1] == "START")
-                .then(pl.lit("MEDICATION_START"))
-                .alias("code"),
-                pl.when(pl.col("code").list[2] == "Administered")
-                .then(pl.col("code").list[1])
-                .when(pl.col("code").list[1] == "START")
-                .then(pl.col("code").list[2])
-                .alias("text_value"),
+                pl.col("code").list[2].alias("code"), # Event type
+                pl.col("code").list[1].alias("text_value"), # drug name
             )
             .drop_nulls("text_value")
             .with_columns(

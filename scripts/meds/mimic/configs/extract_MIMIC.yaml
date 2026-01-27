@@ -75,8 +75,8 @@ stages:
   #### Custom transforms ####
   - filter_null_values
   - filter_by_text_value
+  - clean_code
   # - create_prefix_column
-  # - clean_code
   # - calculate_age
   # - add_time_column
   ##############################

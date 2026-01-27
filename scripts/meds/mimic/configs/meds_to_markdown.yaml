@@ -37,7 +37,7 @@ stage_configs:
     to_titlecase: true
     patterns:
       - pattern: '^(.*?)//'
-        replacement: '\${0}FIRSTSLASHMARKER'
+        replacement: '\${1}FIRSTSLASHMARKER'
       - pattern: '_|//'
         replacement: " "
       - pattern: 'FIRSTSLASHMARKER'

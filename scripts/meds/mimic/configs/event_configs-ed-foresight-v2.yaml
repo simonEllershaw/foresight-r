@@ -382,16 +382,16 @@ hosp/omr:
     # time_format: "%Y-%m-%d %H:%M:%S"
 
 hosp/patients:
-  # dob:
-  #   code:
-  #     # Not using the MEDS official code for birth (MEDS_BIRTH) due to semantics also include gender.
-  #     - "BIRTH"
-  #     - "GENDER"
-  #   text_value: col(gender)
-  #   time: col(year_of_birth)
-  #   # Set as Y-01-01 00:00:00 internally in pre-MEDS
-  #   # Leave at 00:00:00 to ensure no events come before this event
-  #   time_format: "%Y"
+  dob:
+    code:
+      # Not using the MEDS official code for birth (MEDS_BIRTH) due to semantics also include gender.
+      - "BIRTH"
+      - "GENDER"
+    text_value: col(gender)
+    time: col(year_of_birth)
+    # Set as Y-01-01 00:00:00 internally in pre-MEDS
+    # Leave at 00:00:00 to ensure no events come before this event
+    time_format: "%Y"
   death:
     code:
       # Not using the MEDS official code for death (MEDS_DEATH) due to semantics.

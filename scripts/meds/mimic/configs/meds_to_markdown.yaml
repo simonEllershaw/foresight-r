@@ -1,0 +1,63 @@
+# MEDS to Markdown Pipeline
+# Converts MEDS data to markdown format per subject and saves as HuggingFace dataset
+
+defaults:
+  - _pipeline
+  - _self_
+
+description: |-
+  This pipeline converts MEDS data to markdown format per subject, applying transforms
+  (create_prefix_column, calculate_age, add_time_column) and then converting to markdown.
+
+  Environment variables:
+  ```bash
+    export MEDS_INPUT_DIR=# Path to MEDS data directory (e.g., data/mimic-iv-meds/data/train)
+    export MEDS_MARKDOWN_DIR=# Path to output directory (e.g., data/mimic_markdown)
+  ```
+
+input_dir: ${oc.env:MEDS_INPUT_DIR}
+cohort_dir: ${oc.env:MEDS_MARKDOWN_DIR}
+
+etl_metadata:
+  pipeline_name: meds_to_markdown
+  dataset_name: MIMIC-IV-Markdown
+  dataset_version: 1.0
+
+stage_configs:
+  filter_codes_by_regex:
+    _script: custom-meds-transform-filter-codes-by-regex
+    patterns:
+      - "^AGE//" # We add age as a header to each event group so don't need as own event
+  create_prefix_column:
+    _script: custom-meds-transform-create-prefix-column
+  append_values:
+    _script: custom-meds-transform-append-values
+    join_char: " "
+  clean_code:
+    _script: custom-meds-transform-clean-code
+    column: code
+    to_titlecase: true
+    patterns:
+      - pattern: '_|\/\/'
+        replacement: " "
+      - pattern: '(\s){2,}'
+        replacement: " "
+  calculate_age:
+    _script: custom-meds-transform-calculate-age
+    birth_prefix: "Birth"
+  add_time_column:
+    _script: custom-meds-transform-add-time-column
+    time_format: "%H:%M"
+    replace_end_of_day: true
+    end_of_day_fill_value: null
+  convert_to_markdown:
+    _script: custom-meds-transform-convert-to-markdown
+
+stages:
+  - filter_codes_by_regex
+  - create_prefix_column
+  - append_values
+  - clean_code
+  - calculate_age
+  - add_time_column
+  - convert_to_markdown

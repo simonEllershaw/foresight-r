@@ -2,7 +2,7 @@
 # ===================================
 #
 # Download: MIMIC_USER=user MIMIC_PASSWORD=pass make download-demo-data
-# Process:  make run-meds-extraction
+# Process:  make meds
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -21,7 +21,7 @@ N_WORKERS             := 1
 
 ACES_OUTPUT_DIR := data/aces_outputs
 
-.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data run-meds-extraction sample_markdown_file test aces_outputs ethos-tokenization meds-to-markdown
+.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data meds sample_markdown_file test aces_outputs ethos-tokenization meds-to-markdown
 
 # ------------------------------------------------------------------------------
 # Helper Functions
@@ -70,7 +70,7 @@ download-demo-data: download-mimic-demo download-mimic-ed-demo
 # MEDS Processing Targets
 # ------------------------------------------------------------------------------
 
-run-meds-extraction:
+meds:
 	@rm -rf $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
 	@mkdir -p $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
 

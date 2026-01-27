@@ -284,3 +284,52 @@ def test_calculate_age_default_birth_prefix():
 
     assert result.filter(pl.col("prefix") == "Birth")["age_year"][0] == 0
     assert result.filter(pl.col("code") == "Event")["age_year"][0] == 10
+
+
+def test_calculate_age_drop_birth_rows():
+    """Test that birth rows are dropped when drop_birth_rows is True."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 1, 1, 2, 2],
+            "time": [
+                datetime(2000, 1, 1),
+                datetime(2010, 1, 1),
+                datetime(2020, 1, 1),
+                datetime(1990, 5, 10),
+                datetime(2010, 8, 25),
+            ],
+            "code": ["Born", "Event1", "Event2", "Born", "Event3"],
+            "prefix": ["Birth", "Other", "Other", "Birth", "Other"],
+        }
+    ).lazy()
+
+    fn = calculate_age_fntr(DictConfig({"drop_birth_rows": True}))
+    result = fn(test_df).collect()
+
+    # Birth rows should be dropped
+    assert len(result.filter(pl.col("prefix") == "Birth")) == 0
+
+    # Non-birth rows should remain with correct ages
+    assert len(result) == 3
+    assert result.filter(pl.col("code") == "Event1")["age_year"][0] == 10
+    assert result.filter(pl.col("code") == "Event2")["age_year"][0] == 20
+    assert result.filter(pl.col("code") == "Event3")["age_year"][0] == 20
+
+
+def test_calculate_age_drop_birth_rows_default_false():
+    """Test that birth rows are preserved by default (drop_birth_rows=False)."""
+    test_df = pl.DataFrame(
+        {
+            "subject_id": [1, 1],
+            "time": [datetime(2000, 1, 1), datetime(2010, 1, 1)],
+            "code": ["Born", "Event"],
+            "prefix": ["Birth", "Other"],
+        }
+    ).lazy()
+
+    fn = calculate_age_fntr(DictConfig({}))
+    result = fn(test_df).collect()
+
+    # Birth row should be preserved
+    assert len(result.filter(pl.col("prefix") == "Birth")) == 1
+    assert len(result) == 2

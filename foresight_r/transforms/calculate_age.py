@@ -24,7 +24,8 @@ def calculate_age_fntr(
 
     Args:
         stage_cfg: Configuration containing:
-            - birth_code: Code value identifying birth events (default: "Born")
+            - birth_prefix: Prefix value identifying birth events (default: "Birth")
+            - drop_birth_rows: If True, drops birth rows after calculating age (default: False)
 
     Returns:
         Function that transforms a LazyFrame by adding age columns
@@ -60,6 +61,7 @@ def calculate_age_fntr(
         └────────────┴───────────┴──────────┴─────────┘
     """
     birth_prefix = stage_cfg.get("birth_prefix", "Birth")
+    drop_birth_rows = stage_cfg.get("drop_birth_rows", False)
 
     def calculate_age_fn(df: pl.LazyFrame) -> pl.LazyFrame:
         """Calculate age using calendar years (age_year) and days since last birthday (age_day)."""
@@ -99,12 +101,17 @@ def calculate_age_fntr(
         last_birthday = birth_time.dt.offset_by(pl.format("{}y", age_years))
         age_days = (pl.col("time") - last_birthday).dt.total_days()
 
-        return df.with_columns(
+        result = df.with_columns(
             [
                 age_years.cast(pl.Int64).alias("age_year"),
                 age_days.cast(pl.Int64).alias("age_day"),
             ]
         )
+
+        if drop_birth_rows:
+            result = result.filter(pl.col("prefix") != birth_prefix)
+
+        return result
 
     return calculate_age_fn
 

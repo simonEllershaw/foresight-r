@@ -36,21 +36,23 @@ stage_configs:
       held_out: null
   create_prefix_column:
     _script: custom-meds-transform-create-prefix-column
-  filter_null_values:
+  filter_null_measurment_values:
     _script: custom-meds-transform-filter-null-values
     prefixes:
       - "EMERGENCY_DEPARTMENT_TRIAGE"
       - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
       - "LABORATORY_RESULT"
-  filter_by_text_value:
-    _script: custom-meds-transform-filter-by-text-value
-    prefix_to_text_values:
-      HOSPITAL_TRANSFER:
-        - ADMIT
-        - TRANSFER
-      DIAGNOSIS_RELATED_GROUPS:
-        - HCFA
-  clean_string_columns:
+  filter_drg_and_hospital_transfers:
+    _script: custom-meds-transform-drop-by-regex
+    patterns:
+      # Done by ETHOS-ARES tokenization
+      # Drop any diagnosis related groups that are not HCFA
+      - regex: "^DIAGNOSIS_RELATED_GROUPS//.*"
+        except_regex: "^DIAGNOSIS_RELATED_GROUPS//HCFA.*"
+      # Drop any hospital transfer that are not admit or transfer
+      - regex: "^HOSPITAL_TRANSFER//.*"
+        except_regex: "^HOSPITAL_TRANSFER//(ADMIT|TRANSFER).*"
+  clean_code_column:
     _script: custom-meds-transform-clean-string-columns
     column: code
     strip_whitespace: true
@@ -58,14 +60,6 @@ stage_configs:
     patterns:
       - pattern: '(\s){1,}'
         replacement: "_"
-  # calculate_age:
-  #   _script: custom-meds-transform-calculate-age
-  #   birth_code: "Born"
-  # add_time_column:
-  #   _script: custom-meds-transform-add-time-column
-  #   time_format: "%H:%M"
-  #   replace_end_of_day: true
-  #   end_of_day_fill_value: "Time Unspecified"
 
 stages:
   - shard_events
@@ -73,12 +67,9 @@ stages:
   - convert_to_sharded_events
   - merge_to_MEDS_cohort
   #### Custom transforms ####
-  - filter_null_values
-  - filter_by_text_value
-  - clean_string_columns
-  # - create_prefix_column
-  # - calculate_age
-  # - add_time_column
+  - filter_null_measurment_values
+  - filter_drg_and_hospital_transfers
+  - clean_code_column
   ##############################
   - extract_code_metadata
   - finalize_MEDS_metadata

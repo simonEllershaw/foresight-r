@@ -236,11 +236,10 @@ hosp/drgcodes:
       - col(drg_type)
       - col(drg_code)
       - col(description)
+    text_value: col(description)
     hadm_id: hadm_id
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    # Used for filtering to HCFA
-    text_value: col(drg_type)
     # Not used in Ethos-ARES tokenization
     # drg_severity: drg_severity
     # drg_mortality: drg_mortality
@@ -450,7 +449,6 @@ hosp/transfers:
       - col(eventtype)
       - "TO"
       - col(careunit)
-    text_value: col(eventtype)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
     hadm_id: hadm_id

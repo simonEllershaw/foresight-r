@@ -1,10 +1,10 @@
-"""Tests for clean_code stage."""
+"""Tests for clean_string_columns stage."""
 
 import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.clean_code import clean_code_fntr
+from foresight_r.transforms.clean_string_columns import clean_string_columns_fntr
 
 
 @pytest.fixture
@@ -40,9 +40,9 @@ def default_config():
     )
 
 
-def test_clean_code_default_patterns(sample_data, default_config):
+def test_clean_string_columns_default_patterns(sample_data, default_config):
     """Test that default patterns clean codes correctly."""
-    fn = clean_code_fntr(default_config)
+    fn = clean_string_columns_fntr(default_config)
     result = fn(sample_data).collect()
 
     assert result["code"].to_list() == [
@@ -54,7 +54,7 @@ def test_clean_code_default_patterns(sample_data, default_config):
     ]
 
 
-def test_clean_code_double_slash_replacement(default_config):
+def test_clean_string_columns_double_slash_replacement(default_config):
     """Test that '//' is replaced with space."""
     test_df = pl.DataFrame(
         {
@@ -64,13 +64,13 @@ def test_clean_code_double_slash_replacement(default_config):
         }
     ).lazy()
 
-    fn = clean_code_fntr(default_config)
+    fn = clean_string_columns_fntr(default_config)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["A B", "C D E", "F G H I"]
 
 
-def test_clean_code_unk_replacement(default_config):
+def test_clean_string_columns_unk_replacement(default_config):
     """Test that UNK and ___ are replaced with ?."""
     test_df = pl.DataFrame(
         {
@@ -80,13 +80,13 @@ def test_clean_code_unk_replacement(default_config):
         }
     ).lazy()
 
-    fn = clean_code_fntr(default_config)
+    fn = clean_string_columns_fntr(default_config)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["?", "?", "value ? ?"]
 
 
-def test_clean_code_multiple_spaces(default_config):
+def test_clean_string_columns_multiple_spaces(default_config):
     """Test that multiple spaces are collapsed to single space."""
     test_df = pl.DataFrame(
         {
@@ -96,13 +96,13 @@ def test_clean_code_multiple_spaces(default_config):
         }
     ).lazy()
 
-    fn = clean_code_fntr(default_config)
+    fn = clean_string_columns_fntr(default_config)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["A B", "C D E", "F G"]
 
 
-def test_clean_code_custom_column():
+def test_clean_string_columns_custom_column():
     """Test cleaning a different column."""
     test_df = pl.DataFrame(
         {
@@ -124,14 +124,14 @@ def test_clean_code_custom_column():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["unchanged", "unchanged"]
     assert result["description"].to_list() == ["value ?", "test data"]
 
 
-def test_clean_code_custom_patterns():
+def test_clean_string_columns_custom_patterns():
     """Test with custom replacement patterns."""
     test_df = pl.DataFrame(
         {"subject_id": [1, 2], "time": [1, 2], "code": ["UPPER_CASE", "lower-case"]}
@@ -147,15 +147,15 @@ def test_clean_code_custom_patterns():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["UPPER CASE", "lower_case"]
 
 
-def test_clean_code_preserves_other_columns(sample_data, default_config):
+def test_clean_string_columns_preserves_other_columns(sample_data, default_config):
     """Test that transformation preserves all other columns."""
-    fn = clean_code_fntr(default_config)
+    fn = clean_string_columns_fntr(default_config)
     result = fn(sample_data).collect()
 
     assert "subject_id" in result.columns
@@ -164,7 +164,7 @@ def test_clean_code_preserves_other_columns(sample_data, default_config):
     assert result["time"].to_list() == [1, 2, 3, 4, 5]
 
 
-def test_clean_code_empty_dataframe(default_config):
+def test_clean_string_columns_empty_dataframe(default_config):
     """Test that transformation handles empty DataFrames."""
     test_df = pl.DataFrame(
         {
@@ -174,14 +174,14 @@ def test_clean_code_empty_dataframe(default_config):
         }
     ).lazy()
 
-    fn = clean_code_fntr(default_config)
+    fn = clean_string_columns_fntr(default_config)
     result = fn(test_df).collect()
 
     assert len(result) == 0
     assert "code" in result.columns
 
 
-def test_clean_code_pattern_order_matters():
+def test_clean_string_columns_pattern_order_matters():
     """Test that patterns are applied in sequence."""
     test_df = pl.DataFrame({"subject_id": [1], "time": [1], "code": ["A//B//C"]}).lazy()
 
@@ -196,7 +196,7 @@ def test_clean_code_pattern_order_matters():
         }
     )
 
-    fn1 = clean_code_fntr(cfg1)
+    fn1 = clean_string_columns_fntr(cfg1)
     result1 = fn1(test_df).collect()
 
     # Just replace '//' with multiple spaces
@@ -209,14 +209,14 @@ def test_clean_code_pattern_order_matters():
         }
     )
 
-    fn2 = clean_code_fntr(cfg2)
+    fn2 = clean_string_columns_fntr(cfg2)
     result2 = fn2(test_df).collect()
 
     assert result1["code"][0] == "A B C"
     assert result2["code"][0] == "A  B  C"
 
 
-def test_clean_code_no_patterns_raises_error():
+def test_clean_string_columns_no_patterns_raises_error():
     """Test that missing patterns and strip_whitespace raises ValueError."""
     cfg = DictConfig({"column": "code", "patterns": []})
 
@@ -224,10 +224,10 @@ def test_clean_code_no_patterns_raises_error():
         ValueError,
         match="At least one pattern, strip_whitespace, to_titlecase, or to_uppercase",
     ):
-        clean_code_fntr(cfg)
+        clean_string_columns_fntr(cfg)
 
 
-def test_clean_code_null_values(default_config):
+def test_clean_string_columns_null_values(default_config):
     """Test handling of null values."""
     test_df = pl.DataFrame(
         {
@@ -237,7 +237,7 @@ def test_clean_code_null_values(default_config):
         }
     ).lazy()
 
-    fn = clean_code_fntr(default_config)
+    fn = clean_string_columns_fntr(default_config)
     result = fn(test_df).collect()
 
     assert result["code"][0] == "LAB glucose"
@@ -245,7 +245,7 @@ def test_clean_code_null_values(default_config):
     assert result["code"][2] == "ADMISSION ?"
 
 
-def test_clean_code_regex_patterns():
+def test_clean_string_columns_regex_patterns():
     """Test that regex patterns work correctly."""
     test_df = pl.DataFrame(
         {
@@ -264,13 +264,13 @@ def test_clean_code_regex_patterns():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["test#", "value#xyz", "abc#def"]
 
 
-def test_clean_code_strip_whitespace():
+def test_clean_string_columns_strip_whitespace():
     """Test that strip_whitespace removes leading/trailing whitespace."""
     test_df = pl.DataFrame(
         {
@@ -288,13 +288,13 @@ def test_clean_code_strip_whitespace():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["leading", "trailing", "both", "none"]
 
 
-def test_clean_code_strip_whitespace_with_patterns():
+def test_clean_string_columns_strip_whitespace_with_patterns():
     """Test strip_whitespace combined with patterns."""
     test_df = pl.DataFrame(
         {
@@ -315,7 +315,7 @@ def test_clean_code_strip_whitespace_with_patterns():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == [
@@ -324,7 +324,7 @@ def test_clean_code_strip_whitespace_with_patterns():
     ]
 
 
-def test_clean_code_strip_whitespace_false_preserves_spaces():
+def test_clean_string_columns_strip_whitespace_false_preserves_spaces():
     """Test that strip_whitespace=False preserves leading/trailing whitespace."""
     test_df = pl.DataFrame(
         {
@@ -342,13 +342,13 @@ def test_clean_code_strip_whitespace_false_preserves_spaces():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"][0] == " spaced "
 
 
-def test_clean_code_to_titlecase():
+def test_clean_string_columns_to_titlecase():
     """Test that to_titlecase converts strings to title case."""
     test_df = pl.DataFrame(
         {
@@ -366,7 +366,7 @@ def test_clean_code_to_titlecase():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == [
@@ -377,7 +377,7 @@ def test_clean_code_to_titlecase():
     ]
 
 
-def test_clean_code_to_titlecase_with_patterns():
+def test_clean_string_columns_to_titlecase_with_patterns():
     """Test to_titlecase combined with patterns."""
     test_df = pl.DataFrame(
         {
@@ -397,13 +397,13 @@ def test_clean_code_to_titlecase_with_patterns():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["Lab Glucose", "Admission Emergency Room"]
 
 
-def test_clean_code_to_titlecase_with_null():
+def test_clean_string_columns_to_titlecase_with_null():
     """Test that to_titlecase handles null values."""
     test_df = pl.DataFrame(
         {
@@ -421,7 +421,7 @@ def test_clean_code_to_titlecase_with_null():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"][0] == "Upper"
@@ -429,7 +429,7 @@ def test_clean_code_to_titlecase_with_null():
     assert result["code"][2] == "Lower"
 
 
-def test_clean_code_to_uppercase():
+def test_clean_string_columns_to_uppercase():
     """Test that to_uppercase converts strings to uppercase."""
     test_df = pl.DataFrame(
         {
@@ -447,7 +447,7 @@ def test_clean_code_to_uppercase():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == [
@@ -458,7 +458,7 @@ def test_clean_code_to_uppercase():
     ]
 
 
-def test_clean_code_to_uppercase_with_patterns():
+def test_clean_string_columns_to_uppercase_with_patterns():
     """Test to_uppercase combined with patterns."""
     test_df = pl.DataFrame(
         {
@@ -478,13 +478,13 @@ def test_clean_code_to_uppercase_with_patterns():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"].to_list() == ["LAB GLUCOSE", "ADMISSION EMERGENCY ROOM"]
 
 
-def test_clean_code_to_uppercase_with_null():
+def test_clean_string_columns_to_uppercase_with_null():
     """Test that to_uppercase handles null values."""
     test_df = pl.DataFrame(
         {
@@ -502,7 +502,7 @@ def test_clean_code_to_uppercase_with_null():
         }
     )
 
-    fn = clean_code_fntr(cfg)
+    fn = clean_string_columns_fntr(cfg)
     result = fn(test_df).collect()
 
     assert result["code"][0] == "LOWER"

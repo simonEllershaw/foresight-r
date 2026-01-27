@@ -31,21 +31,19 @@ stage_configs:
   append_values:
     _script: custom-meds-transform-append-values
     join_char: " "
-  clean_code:
-    _script: custom-meds-transform-clean-code
-    column: code
-    to_titlecase: true
-    patterns:
-      - pattern: '^(.*?)//'
-        replacement: '\${1}FIRSTSLASHMARKER'
-      - pattern: '_|//'
-        replacement: " "
-      - pattern: 'FIRSTSLASHMARKER'
-        replacement: '//'
-      - pattern: '(\s){2,}'
-        replacement: " "
   create_prefix_column:
     _script: custom-meds-transform-create-prefix-column
+  clean_string_columns:
+    _script: custom-meds-transform-clean-string-columns
+    column:
+      - code
+      - prefix
+    to_titlecase: true
+    patterns:
+      - pattern: '_|//'
+        replacement: " "
+      - pattern: '(\s){2,}'
+        replacement: " "
   calculate_age:
     _script: custom-meds-transform-calculate-age
     birth_prefix: "Birth"
@@ -60,8 +58,8 @@ stage_configs:
 stages:
   - drop_by_regex
   - append_values
-  - clean_code
   - create_prefix_column
+  - clean_string_columns
   - calculate_age
   - add_time_column
   - convert_to_markdown

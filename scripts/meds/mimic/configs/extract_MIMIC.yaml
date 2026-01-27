@@ -50,8 +50,8 @@ stage_configs:
         - TRANSFER
       DIAGNOSIS_RELATED_GROUPS:
         - HCFA
-  clean_code:
-    _script: custom-meds-transform-clean-code
+  clean_string_columns:
+    _script: custom-meds-transform-clean-string-columns
     column: code
     strip_whitespace: true
     to_uppercase: true
@@ -75,7 +75,7 @@ stages:
   #### Custom transforms ####
   - filter_null_values
   - filter_by_text_value
-  - clean_code
+  - clean_string_columns
   # - create_prefix_column
   # - calculate_age
   # - add_time_column

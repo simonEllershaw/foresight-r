@@ -21,10 +21,10 @@ ed/edstays:
   ed_out:
     code:
       - "EMERGENCY_DEPARTMENT_DISCHARGE"
-      - "TO"
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    text_value: disposition
+    # Not used in Ethos-ARES tokenization
+    # text_value: disposition
     hadm_id: hadm_id
     stay_id: stay_id
 
@@ -153,8 +153,9 @@ hosp/admissions:
       - "HOSPITAL_ADMISSION"
       - "TYPE"
       - col(admission_type)
-      - "FROM"
-      - col(admission_location)
+      # Not used in Ethos-ARES tokenization
+      # - "FROM"
+      # - col(admission_location)
     time: col(admittime)
     time_format: "%Y-%m-%d %H:%M:%S"
   # Multiple insurance, marital status, and race are recorded

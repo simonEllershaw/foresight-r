@@ -61,6 +61,30 @@ stage_configs:
       - pattern: '(\s){1,}'
         replacement: "_"
 
+  order_by_prefix:
+    _script: custom-meds-transform-order-by-prefix
+    prefixes:
+      - BIRTH
+      - EMERGENCY_DEPARTMENT_REGISTRATION
+      - EMERGENCY_DEPARTMENT_TRIAGE
+      - EMERGENCY_DEPARTMENT_VITAL_SIGNS
+      - EMERGENCY_DEPARTMENT_MEDICATION
+      - EMERGENCY_DEPARTMENT_DISCHARGE
+      - EMERGENCY_DEPARTMENT_DIAGNOSIS
+      - HOSPITAL_ADMISSION
+      - ICU_ADMISSION
+      - OBSERVATION_MEDICAL_RECORD
+      - LABORATORY_RESULT
+      - HOSPITAL_MEDICATION
+      - HOSPITAL_PROCEDURE
+      - HOSPITAL_TRANSFER
+      - ICU_DISCHARGE
+      - HOSPITAL_DISCHARGE
+      - HOSPITAL_DIAGNOSIS
+      - DIAGNOSIS_RELATED_GROUPS
+      - HEALTHCARE_COMMON_PROCEDURE_CODING_SYSTEM
+      - DEATH
+
 stages:
   - shard_events
   - split_and_shard_subjects
@@ -70,6 +94,7 @@ stages:
   - filter_null_measurment_values
   - filter_drg_and_hospital_transfers
   - clean_code_column
+  - order_by_prefix
   ##############################
   - extract_code_metadata
   - finalize_MEDS_metadata

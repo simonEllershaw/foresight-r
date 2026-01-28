@@ -283,7 +283,6 @@ class InpatientData:
                 code=pl.when(pl.col.code.str.starts_with("HOSPITAL_DISCHARGE//"))
                 .then(
                     pl.concat_list(
-                        pl.lit("HOSPITAL_DISCHARGE"),
                         (
                             pl.lit("DISCHARGE_LOCATION//")
                             + pl.when(pl.col("text_value").is_in(discharge_facilities))
@@ -645,11 +644,8 @@ class EdData:
     @MatchAndRevise(prefix="EMERGENCY_DEPARTMENT_REGISTRATION//")
     def process_ed_registration(df: pl.DataFrame) -> pl.DataFrame:
         return df.with_columns(
-            code=pl.concat_list(
-                "code",
-                pl.lit("EMERGENCY_DEPARTMENT_REGISTRATION//")
+            code= pl.col("code") + pl.lit("//")
                 + pl.when(pl.col.text_value == "HELICOPTER")
                 .then(pl.lit("OTHER"))
-                .otherwise("text_value"),
-            )
-        ).explode("code")
+                .otherwise(pl.col("text_value")),
+        )

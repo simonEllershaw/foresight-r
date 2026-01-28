@@ -21,10 +21,10 @@ ed/edstays:
   ed_out:
     code:
       - "EMERGENCY_DEPARTMENT_DISCHARGE"
+      - "DISCHARGE_LOCATION" # Discharge location matches hospital discharge location
     time: col(outtime)
+    text_value: disposition
     time_format: "%Y-%m-%d %H:%M:%S"
-    # Not used in Ethos-ARES tokenization
-    # text_value: disposition
     # hadm_id: hadm_id
     # stay_id: stay_id
 
@@ -210,7 +210,7 @@ hosp/admissions:
   discharge:
     code:
       - "HOSPITAL_DISCHARGE"
-      - "LOCATION"
+      - "DISCHARGE_LOCATION"
       - col(discharge_location)
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"

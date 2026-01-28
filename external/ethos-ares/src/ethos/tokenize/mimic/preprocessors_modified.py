@@ -61,8 +61,13 @@ LabData:
 - Removed retain_only_test_with_numeric_result method.
 - Removed unify_code_names call in make_quantiles.
 
+
 EdData:
 - Removed process_ed_acuity method.
+- Added process_ed_discharges method (using shared discharge logic).
+
+Global Helpers:
+- Added get_discharge_location_expr helper function.
 """
 import numpy as np
 import polars as pl
@@ -193,6 +198,25 @@ class DemographicData:
         )
 
 
+
+def get_discharge_location_expr(text_col: str = "text_value") -> pl.Expr:
+    discharge_facilities = [
+        "HEALTHCARE FACILITY",
+        "SKILLED NURSING FACILITY",
+        "REHAB",
+        "CHRONIC/LONG TERM ACUTE CARE",
+        "OTHER FACILITY",
+    ]
+    return (
+        pl.lit("DISCHARGE_LOCATION//")
+        + pl.when(pl.col(text_col).is_in(discharge_facilities))
+        .then(pl.lit("HEALTHCARE_FACILITY"))
+        .when(pl.col(text_col).is_null())
+        .then(pl.lit("UNKNOWN"))
+        .otherwise(pl.col(text_col).replace(" ", "_"))
+    )
+
+
 class InpatientData:
     @staticmethod
     @MatchAndRevise(prefix="DIAGNOSIS_RELATED_GROUPS//", apply_vocab=True)
@@ -235,13 +259,6 @@ class InpatientData:
     @MatchAndRevise(prefix=["HOSPITAL_DISCHARGE//", "HOSPITAL_DIAGNOSIS//", "EMERGENCY_DEPARTMENT_DIAGNOSIS//", "DIAGNOSIS_RELATED_GROUPS//"])
     def process_hospital_discharges(df: pl.DataFrame) -> pl.DataFrame:
         """Currently must be run before processing diagnoses."""
-        discharge_facilities = [
-            "HEALTHCARE FACILITY",
-            "SKILLED NURSING FACILITY",
-            "REHAB",
-            "CHRONIC/LONG TERM ACUTE CARE",
-            "OTHER FACILITY",
-        ]
 
         is_diagnosis = pl.col.code.str.starts_with(
             "EMERGENCY_DEPARTMENT_DIAGNOSIS//"
@@ -281,18 +298,7 @@ class InpatientData:
             )
             .with_columns(
                 code=pl.when(pl.col.code.str.starts_with("HOSPITAL_DISCHARGE//"))
-                .then(
-                    pl.concat_list(
-                        (
-                            pl.lit("DISCHARGE_LOCATION//")
-                            + pl.when(pl.col("text_value").is_in(discharge_facilities))
-                            .then(pl.lit("HEALTHCARE_FACILITY"))
-                            .when(pl.col("text_value").is_null())
-                            .then(pl.lit("UNKNOWN"))
-                            .otherwise(pl.col("text_value").replace(" ", "_"))
-                        ),
-                    )
-                )
+                .then(pl.concat_list(get_discharge_location_expr()))
                 .otherwise(pl.concat_list("code")),
                 drg_missing=drg_missing_cond,
             )
@@ -315,7 +321,6 @@ class TextData:
             "HOSPITAL_ADMISSION//MARITAL_STATUS",
             "HOSPITAL_ADMISSION//GENDER",
             "EMERGENCY_DEPARTMENT_TRIAGE//GENDER",
-
         ]
     )
     def process_simple_text_events(df: pl.DataFrame) -> pl.DataFrame:
@@ -648,4 +653,11 @@ class EdData:
                 + pl.when(pl.col.text_value == "HELICOPTER")
                 .then(pl.lit("OTHER"))
                 .otherwise(pl.col("text_value")),
+        )
+
+    @staticmethod
+    @MatchAndRevise(prefix="EMERGENCY_DEPARTMENT_DISCHARGE")
+    def process_ed_discharges(df: pl.DataFrame) -> pl.DataFrame:
+        return df.with_columns(
+            code=get_discharge_location_expr()
         )

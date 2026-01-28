@@ -49,6 +49,7 @@ stages:
       # - PatientFluidOutputData.make_quantiles # Not included in MEDS schema
       # - BMIData.make_quantiles # BMI dealt with as simple measurement
       - EdData.process_ed_registration
+      - EdData.process_ed_discharges
       # - EdData.process_ed_acuity # Handled as simple measurement
       - MeasurementData.process_simple_measurements
       - MeasurementData.process_pain

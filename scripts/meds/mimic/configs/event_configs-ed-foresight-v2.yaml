@@ -5,7 +5,7 @@
 # - Replaces structured codes with descriptive natural language phrases and semantic connectors.
 # - Uses human-readable titles/descriptions (e.g., ICD titles) instead of raw identifiers.
 # - Explicitly models units and splits compound events (e.g., Blood Pressure) for clarity.
-# - Comments out fields unused in the target tokenization to reduce noise.
+# - Comments out fields unused in the target tokenization to reduce noise. Including hadm_id and stay_id.
 
 subject_id_col: subject_id
 ed/edstays:
@@ -16,8 +16,8 @@ ed/edstays:
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
     text_value: arrival_transport
-    hadm_id: hadm_id
-    stay_id: stay_id
+    # hadm_id: hadm_id
+    # stay_id: stay_id
   ed_out:
     code:
       - "EMERGENCY_DEPARTMENT_DISCHARGE"
@@ -25,8 +25,8 @@ ed/edstays:
     time_format: "%Y-%m-%d %H:%M:%S"
     # Not used in Ethos-ARES tokenization
     # text_value: disposition
-    hadm_id: hadm_id
-    stay_id: stay_id
+    # hadm_id: hadm_id
+    # stay_id: stay_id
 
 # Units set as text_value so can be append as suffix for natural language representation
 ed/triage:
@@ -38,7 +38,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   heart_rate:
     code:
       - "EMERGENCY_DEPARTMENT_TRIAGE"
@@ -47,7 +47,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   respiratory_rate:
     code:
       - "EMERGENCY_DEPARTMENT_TRIAGE"
@@ -56,7 +56,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   o2_saturation:
     code:
       - "EMERGENCY_DEPARTMENT_TRIAGE"
@@ -65,7 +65,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
 # Treat systolic and diastolic blood pressure seperately so can filter null values seperately
   systolic_blood_pressure:
     code:
@@ -75,7 +75,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   diastolic_blood_pressure:
     code:
       - "EMERGENCY_DEPARTMENT_TRIAGE"
@@ -84,7 +84,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   pain:
     code:
       - "EMERGENCY_DEPARTMENT_TRIAGE"
@@ -94,7 +94,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   acuity:
     code:
       - "EMERGENCY_DEPARTMENT_TRIAGE"
@@ -103,7 +103,7 @@ ed/triage:
     time: col(intime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   # Free text so dropped to allow for structured vs LLM comparison
   # chiefcomplaint:
   #   code:
@@ -123,7 +123,7 @@ ed/triage:
     text_value: col(gender)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   # Age joined from subjects table
   age:
     code:
@@ -132,7 +132,7 @@ ed/triage:
     numeric_value: col(age)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
 
 ed/diagnosis:
   diagnosis:
@@ -143,7 +143,7 @@ ed/diagnosis:
       - col(icd_code)
     # Long title derived from icd_version and code
     text_value: col(icd_title)
-    stay_id: stay_id
+    # stay_id: stay_id
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
 
@@ -214,7 +214,7 @@ hosp/admissions:
       - col(discharge_location)
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
   # We omit the death event here as it is joined to the data in the subjects table in the pre-MEDS step.
 
 hosp/diagnoses_icd:
@@ -226,7 +226,7 @@ hosp/diagnoses_icd:
       - col(icd_code)
     # Long title derived from icd_version and code
     text_value: col(long_title)
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
 
@@ -238,7 +238,7 @@ hosp/drgcodes:
       - col(drg_code)
       - col(description)
     text_value: col(description)
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
     time: col(dischtime)
     time_format: "%Y-%m-%d %H:%M:%S"
     # Not used in Ethos-ARES tokenization
@@ -253,7 +253,7 @@ hosp/emar:
       - col(event_txt)
     time: col(charttime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
     # Not used in Ethos-ARES tokenization
     # emar_id: emar_id
     # emar_seq: emar_seq
@@ -266,7 +266,7 @@ ed/pyxis:
       - "DISPENSED" # Correct term according to docs (https://physionet.org/content/mimic-iv-ed/2.2/_)
     time: col(charttime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
 
 hosp/hcpcsevents:
   hcpcs:
@@ -274,7 +274,7 @@ hosp/hcpcsevents:
       - "HEALTHCARE_COMMON_PROCEDURE_CODING_SYSTEM"
       # Use long_description instead of short_description (still unique)
       - col(long_description)
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
     time: col(chartdate)
     # Set to EOD in pre-MEDS so already in Datetime format
     # time_format: "%Y-%m-%d %H:%M:%S"
@@ -287,7 +287,7 @@ hosp/labevents:
       - col(fluid)
       - col(label)
       - col(valueuom)
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
     time: col(charttime)
     time_format: "%Y-%m-%d %H:%M:%S"
     numeric_value: valuenum
@@ -305,7 +305,7 @@ ed/vitalsign:
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   heart_rate:
     code:
       - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
@@ -314,7 +314,7 @@ ed/vitalsign:
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   respiratory_rate:
     code:
       - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
@@ -323,7 +323,7 @@ ed/vitalsign:
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   o2_saturation:
     code:
       - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
@@ -332,7 +332,7 @@ ed/vitalsign:
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   diastolic_blood_pressure:
     code:
       - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
@@ -341,7 +341,7 @@ ed/vitalsign:
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   systolic_blood_pressure:
     code:
       - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
@@ -350,7 +350,7 @@ ed/vitalsign:
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   pain:
     code:
       - "EMERGENCY_DEPARTMENT_VITAL_SIGNS"
@@ -359,7 +359,7 @@ ed/vitalsign:
     time: col(charttime)
     time_format:
       - "%Y-%m-%d %H:%M:%S"
-    stay_id: stay_id
+    # stay_id: stay_id
   # Not in Ethos-ARES as free text field
   # heart_rhythm:
   #   code:
@@ -438,7 +438,7 @@ hosp/procedures_icd:
       - col(icd_code)
     # Long title derived from icd_version and code
     text_value: col(long_title)
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
     time: col(chartdate)
     # Set to EOD in pre-MEDS so already in Datetime format
     # time_format: "%Y-%m-%d %H:%M:%S"
@@ -452,7 +452,7 @@ hosp/transfers:
       - col(careunit)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    hadm_id: hadm_id
+    # hadm_id: hadm_id
 
 icu/icustays:
   icu_admission:
@@ -461,16 +461,16 @@ icu/icustays:
       - col(first_careunit)
     time: col(intime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    hadm_id: hadm_id
-    icustay_id: stay_id
+    # hadm_id: hadm_id
+    # icustay_id: stay_id
   icu_discharge:
     code:
       - "ICU_DISCHARGE"
       - col(last_careunit)
     time: col(outtime)
     time_format: "%Y-%m-%d %H:%M:%S"
-    hadm_id: hadm_id
-    icustay_id: stay_id
+    # hadm_id: hadm_id
+    # icustay_id: stay_id
 
 # Not used in ETHOS-ARES tokenization
 #icu/chartevents:

@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.order_by_prefix import order_events
+from foresight_r.transforms.order_events import order_events
 
 
 def test_order_basic():
@@ -296,3 +296,24 @@ def test_order_by_numeric_and_text_value():
     result = fn(df).collect()
 
     assert result["val"].to_list() == [3, 2, 5, 1, 4]
+
+
+def test_order_by_code():
+    """Rows with same prefix/time are ordered by code before numeric_value."""
+    df = pl.DataFrame(
+        {
+            "subject_id": [1] * 2,
+            "time": [100] * 2,
+            "code": ["A//z", "A//a"],
+            "numeric_value": [1.0, 1.0],
+            "text_value": [None, None],
+            "val": [1, 2],
+        }
+    ).lazy()
+
+    cfg = DictConfig({"prefixes": ["A"]})
+    fn = order_events(cfg)
+    result = fn(df).collect()
+
+    # Code A//a should come before A//z
+    assert result["val"].to_list() == [2, 1]

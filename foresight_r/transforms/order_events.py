@@ -79,6 +79,7 @@ def order_events(
                     "subject_id",
                     "time",
                     "_prefix_priority",
+                    "code",
                     "numeric_value",
                     "text_value",
                 ],

@@ -57,7 +57,7 @@ custom-meds-transform-append-values = "foresight_r.transforms.append_values:main
 
 custom-meds-transform-drop-by-regex = "foresight_r.transforms.drop_by_regex:main"
 custom-meds-transform-replace-code-with-text-value-by-prefix = "foresight_r.transforms.replace_code_with_text_value_by_prefix:main"
-custom-meds-transform-order-by-prefix = "foresight_r.transforms.order_by_prefix:main"
+custom-meds-transform-order-events = "foresight_r.transforms.order_by_prefix:main"
 
 
 [tool.black]

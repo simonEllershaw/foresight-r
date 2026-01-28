@@ -252,16 +252,8 @@ def process_admissions_df(
 def process_drgcodes_df(
     drgcodes_df: pl.LazyFrame, admissions_df: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Filters for 'HCFA' DRG codes (as in ETHOS-ARES), title case the description column and adds the discharge time from admissions."""
+    """Adds the discharge time from admissions."""
     return add_discharge_time_by_hadm_id(drgcodes_df, admissions_df)
-
-
-def process_hosp_transfers_df(hosp_transfers_df: pl.LazyFrame) -> pl.LazyFrame:
-    """Converts eventtype and careunit to uppercase."""
-    return hosp_transfers_df.with_columns(
-        pl.col("eventtype").str.to_uppercase(),
-        pl.col("careunit").str.to_uppercase(),
-    )
 
 
 def process_icd_df(
@@ -447,7 +439,6 @@ FUNCTIONS = {
         fix_static_data,
         [("hosp/admissions", ["subject_id", "deathtime"])],
     ),
-    "hosp/transfers": (process_hosp_transfers_df, None),
     "hosp/labevents": (
         process_lab_events_df,
         [("hosp/d_labitems", ["itemid", "label", "fluid"])],

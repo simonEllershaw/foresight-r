@@ -11,7 +11,7 @@ from MEDS_transforms import PREPROCESS_CONFIG_YAML
 from MEDS_transforms.mapreduce.mapper import map_over
 
 
-def order_by_prefix_fntr(
+def order_events(
     stage_cfg: DictConfig,
 ) -> Callable[[pl.LazyFrame], pl.LazyFrame]:
     """Return a function that orders rows by prefix priority.
@@ -35,7 +35,7 @@ def order_by_prefix_fntr(
         ...     "code": ["MEDICATION//aspirin", "LAB//glucose", "ADMISSION//emergency", "OTHER//unknown"]
         ... }).lazy()
         >>> cfg = DictConfig({"prefixes": ["ADMISSION", "LAB", "MEDICATION"]})
-        >>> fn = order_by_prefix_fntr(cfg)
+        >>> fn = order_events(cfg)
         >>> result = fn(df).collect()
         >>> result.select("code")
         shape: (4, 1)
@@ -74,7 +74,16 @@ def order_by_prefix_fntr(
 
         return (
             df.with_columns(pl.coalesce(priority_exprs).alias("_prefix_priority"))
-            .sort("subject_id", "time", "_prefix_priority")
+            .sort(
+                [
+                    "subject_id",
+                    "time",
+                    "_prefix_priority",
+                    "numeric_value",
+                    "text_value",
+                ],
+                nulls_last=True,
+            )
             .drop("_prefix_priority")
         )
 
@@ -88,7 +97,7 @@ def order_by_prefix_fntr(
 )
 def main(cfg: DictConfig):
     """Run the order_by_prefix stage over MEDS data shards."""
-    map_over(cfg, compute_fn=order_by_prefix_fntr)
+    map_over(cfg, compute_fn=order_events)
 
 
 if __name__ == "__main__":

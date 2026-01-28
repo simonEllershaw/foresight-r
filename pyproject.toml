@@ -54,7 +54,7 @@ custom-meds-transform-filter-null-values = "foresight_r.transforms.filter_null_v
 custom-meds-transform-filter-by-text-value = "foresight_r.transforms.filter_by_text_value:main"
 custom-meds-transform-convert-to-markdown = "foresight_r.transforms.convert_to_markdown:main"
 custom-meds-transform-append-values = "foresight_r.transforms.append_values:main"
-custom-meds-transform-save-hf-dataset = "foresight_r.transforms.save_as_hf_dataset:main"
+
 custom-meds-transform-drop-by-regex = "foresight_r.transforms.drop_by_regex:main"
 custom-meds-transform-replace-code-with-text-value-by-prefix = "foresight_r.transforms.replace_code_with_text_value_by_prefix:main"
 custom-meds-transform-order-by-prefix = "foresight_r.transforms.order_by_prefix:main"

@@ -121,7 +121,3 @@ meds-to-markdown:
 	uv run MEDS_transform-runner \
 		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/meds_to_markdown.yaml" \
 		stage_runner_fp="$(CURDIR)/scripts/meds/local_parallelism_runner.yaml"
-	@echo "Saving as HuggingFace dataset..."
-	uv run python -m foresight_r.transforms.save_as_hf_dataset \
-		"$(CURDIR)/$(MEDS_MARKDOWN_DIR)/data" \
-		"$(CURDIR)/$(MEDS_MARKDOWN_DIR)"

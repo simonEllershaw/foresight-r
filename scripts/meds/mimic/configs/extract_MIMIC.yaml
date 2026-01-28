@@ -10,15 +10,15 @@ description: |-
   pipeline by setting environment variables:
   ```bash
     export EVENT_CONVERSION_CONFIG_FP=# Path to your event conversion config
-    export MIMICIV_PRE_MEDS_DIR=# Path to the output dir of the pre-MEDS step
-    export MIMICIV_MEDS_COHORT_DIR=# Path to where you want the dataset to live
+    export INPUT_DIR=# Path to the input dir of the pre-MEDS step
+    export COHORT_DIR=# Path to where you want the MEDS dataset to live
   ```
 
 # The event conversion configuration file is used throughout the pipeline to define the events to extract.
 event_conversion_config_fp: ${oc.env:EVENT_CONVERSION_CONFIG_FP}
 
-input_dir: ${oc.env:MIMICIV_PRE_MEDS_DIR}
-cohort_dir: ${oc.env:MIMICIV_MEDS_COHORT_DIR}
+input_dir: ${oc.env:INPUT_DIR}
+cohort_dir: ${oc.env:COHORT_DIR}
 
 etl_metadata:
   dataset_name: MIMIC-IV

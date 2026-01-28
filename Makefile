@@ -15,6 +15,7 @@ MIMICIV_RAW_DIR      := data/mimic-iv
 MIMICIV_ED_RAW_DIR   := data/mimic-iv-ed
 MIMICIV_PRE_MEDS_DIR := data/mimic-iv-premeds
 MIMICIV_MEDS_DIR     := data/mimic-iv-meds
+MEDS_MARKDOWN_DIR    := data/mimic-iv-markdown
 
 MIMIC_MEDS_SCRIPT_DIR := scripts/meds/mimic
 N_WORKERS             := 1
@@ -71,18 +72,17 @@ download-demo-data: download-mimic-demo download-mimic-ed-demo
 # ------------------------------------------------------------------------------
 
 meds:
-	@rm -rf $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
-	@mkdir -p $(MIMICIV_PRE_MEDS_DIR) $(MIMICIV_MEDS_DIR)
-
 	@echo "Running pre-MEDS processing..."
+	@rm -rf $(MIMICIV_PRE_MEDS_DIR)
 	uv run python "$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/pre_MEDS.py" \
 		input_dir="$(CURDIR)/$(MIMICIV_RAW_DIR)" \
 		cohort_dir="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)"
 
-	@echo "Running MEDS transform runner..."
-	MIMICIV_PRE_MEDS_DIR="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)" \
-	MIMICIV_MEDS_COHORT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
-	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/event_configs-ed-foresight-v2.yaml" \
+	@echo "Running MEDS extraction..."
+	@rm -rf $(MIMICIV_MEDS_DIR)
+	INPUT_DIR="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)" \
+	COHORT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
+	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/event_configs-ed-foresight.yaml" \
 	N_WORKERS=$(N_WORKERS) \
 	uv run MEDS_transform-runner \
 		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/extract_MIMIC.yaml" \
@@ -109,14 +109,12 @@ ethos-tokenization:
 # MEDS to Markdown Targets
 # ------------------------------------------------------------------------------
 
-MEDS_MARKDOWN_DIR := data/mimic_markdown
-
 meds-to-markdown:
 	@rm -rf $(MEDS_MARKDOWN_DIR)
 	@mkdir -p $(MEDS_MARKDOWN_DIR)
 	@echo "Converting MEDS to markdown format..."
-	MEDS_INPUT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
-	MEDS_MARKDOWN_DIR="$(CURDIR)/$(MEDS_MARKDOWN_DIR)" \
+	INPUT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
+	COHORT_DIR="$(CURDIR)/$(MEDS_MARKDOWN_DIR)" \
 	N_WORKERS=$(N_WORKERS) \
 	uv run MEDS_transform-runner \
 		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/meds_to_markdown.yaml" \

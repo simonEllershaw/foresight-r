@@ -11,12 +11,12 @@ description: |-
 
   Environment variables:
   ```bash
-    export MEDS_INPUT_DIR=# Path to MEDS data directory (e.g., data/mimic-iv-meds/data/train)
-    export MEDS_MARKDOWN_DIR=# Path to output directory (e.g., data/mimic_markdown)
+    export INPUT_DIR=# Path to MEDS data directory (e.g., data/mimic-iv-meds/data/train)
+    export COHORT_DIR=# Path to output directory (e.g., data/mimic_markdown)
   ```
 
-input_dir: ${oc.env:MEDS_INPUT_DIR}
-cohort_dir: ${oc.env:MEDS_MARKDOWN_DIR}
+input_dir: ${oc.env:INPUT_DIR}
+cohort_dir: ${oc.env:COHORT_DIR}
 
 etl_metadata:
   pipeline_name: meds_to_markdown

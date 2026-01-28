@@ -27,7 +27,9 @@ stage_configs:
   drop_age_events:
     _script: custom-meds-transform-drop-by-regex
     patterns:
-      - "^EMERGENCY_DEPARTMENT_TRIAGE//AGE" # We add age as a header to each event group so don't need as own event
+      # We add age as a header to each event group so don't need as own event
+      - "^EMERGENCY_DEPARTMENT_TRIAGE//AGE"
+      - "^HOSPITAL_ADMISSION//AGE"
   append_values:
     _script: custom-meds-transform-append-values
     join_char: " "

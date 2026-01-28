@@ -138,7 +138,7 @@ ed/diagnosis:
   diagnosis:
     code:
       - "EMERGENCY_DEPARTMENT_DIAGNOSIS"
-      - ICD
+      - "ICD"
       - col(icd_version)
       - col(icd_code)
     # Long title derived from icd_version and code
@@ -221,7 +221,7 @@ hosp/diagnoses_icd:
   diagnosis:
     code:
       - "HOSPITAL_DIAGNOSIS"
-      - ICD
+      - "ICD"
       - col(icd_version)
       - col(icd_code)
     # Long title derived from icd_version and code
@@ -386,8 +386,7 @@ hosp/patients:
     code:
       # Not using the MEDS official code for birth (MEDS_BIRTH) due to semantics also include gender.
       - "BIRTH"
-      - "GENDER"
-    text_value: col(gender)
+      - "BORN"
     time: col(year_of_birth)
     # Set as Y-01-01 00:00:00 internally in pre-MEDS
     # Leave at 00:00:00 to ensure no events come before this event

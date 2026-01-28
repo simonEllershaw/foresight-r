@@ -359,9 +359,6 @@ def fix_static_data(
             pl.col("dod").str.strptime(pl.Date).dt.combine(END_OF_DAY),
         ).alias("dod"),
         (pl.col("anchor_year") - pl.col("anchor_age")).cast(str).alias("year_of_birth"),
-        pl.col("gender")
-        .replace_strict({"F": "Female", "M": "Male"}, default=pl.col("gender"))
-        .alias("gender"),
     )
 
 

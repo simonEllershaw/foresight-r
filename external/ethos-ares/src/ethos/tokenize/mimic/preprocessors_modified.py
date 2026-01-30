@@ -405,11 +405,19 @@ class MeasurementData:
                 .otherwise(pl.col("text_value").str.replace_all(r"\D", ""))
                 .cast(float, strict=False)
             )
-            .filter(pl.col.numeric_value.is_between(0, 10))
             .with_columns(
-                code=pl.concat_list(
-                    pl.lit("PAIN"),
-                    pl.lit("Q//PAIN"),
+                code=pl.when(pl.col.numeric_value.is_between(0, 10))
+                .then(
+                    pl.concat_list(
+                        pl.lit("PAIN"),
+                        pl.lit("Q//PAIN"),
+                    )
+                )
+                .otherwise(
+                    pl.concat_list(
+                        pl.lit("PAIN"),
+                        pl.lit("PAIN//UNKNOWN"),
+                    )
                 )
             )
             .explode("code")
@@ -434,15 +442,19 @@ class DiagnosesData:
         return (
             icd9_df.with_columns(
                 pl.lit("ICD//CM//10").alias("code"),
-                pl.col("text_value").replace_strict(icd_9_to_10, default=None),
+                pl.col("text_value").replace_strict(icd_9_to_10, default="UNKNOWN"),
             )
-        ).drop_nulls("text_value")
+        )
 
     @staticmethod
     @MatchAndRevise(prefix="ICD//CM//10", needs_vocab=True)
     def process_icd10(
         icd10_df: pl.DataFrame, vocab: list[str] | None = None
     ) -> pl.DataFrame:
+        """
+        Changes: Explicitly handles "UNKNOWN" ICD codes (from unmapped ICD9 or otherwise).
+        Instead of slicing "UNKNOWN" or dropping unmapped codes, it maps them to "ICD//CM//UNKNOWN".
+        """
         from ..mappings import get_icd_cm_code_to_name_mapping
 
         code_to_name = get_icd_cm_code_to_name_mapping()
@@ -452,15 +464,37 @@ class DiagnosesData:
 
         df = (
             icd10_df.with_columns(
-                pl.col("text_value").str.slice(*code_slice).alias(col)
-                for col, code_slice in zip(temp_cols, code_slices)
+                pl.when(pl.col("text_value") == "UNKNOWN")
+                .then(pl.lit("UNKNOWN"))
+                .otherwise(pl.col("text_value").str.slice(*code_slices[0]))
+                .alias(temp_cols[0]),
+
+                pl.when(pl.col("text_value") == "UNKNOWN")
+                .then(pl.lit(""))
+                .otherwise(pl.col("text_value").str.slice(*code_slices[1]))
+                .alias(temp_cols[1]),
+
+                pl.when(pl.col("text_value") == "UNKNOWN")
+                .then(pl.lit(""))
+                .otherwise(pl.col("text_value").str.slice(*code_slices[2]))
+                .alias(temp_cols[2]),
             )
             .with_columns(
-                pl.col(temp_cols[0]).replace_strict(code_to_name, default=None)
+                pl.col(temp_cols[0]).replace_strict(code_to_name, default="UNKNOWN")
+            )
+            .with_columns(
+                pl.when(pl.col(temp_cols[0]).str.to_uppercase() == "UNKNOWN")
+                .then(pl.lit(None))
+                .otherwise(pl.col(col))
+                .alias(col)
+                for col in temp_cols[1:]
             )
             .with_columns(
                 pl.when(pl.col(col) != "")
-                .then(pl.lit(f"ICD//CM//{prefix}") + pl.col(col))
+                .then(
+                     pl.lit(f"ICD//CM//{prefix}") + pl.col(col)
+                     if prefix != "" else pl.lit("ICD//CM//") + pl.col(col)
+                )
                 .alias(col)
                 for col, prefix in zip(temp_cols, code_prefixes)
             )
@@ -500,29 +534,47 @@ class ProcedureData:
         return (
             icd9_df.with_columns(
                 pl.lit("ICD//PCS//10").alias("code"),
-                pl.col("text_value").replace(icd_9_to_10, default=None),
+                pl.col("text_value").replace(icd_9_to_10, default="UNKNOWN"),
             )
-        ).drop_nulls("text_value")
+        )
 
     @staticmethod
     @MatchAndRevise(prefix="ICD//PCS//10", needs_vocab=True)
     def process_icd10(
         icd10_df: pl.DataFrame, vocab: list[str] | None = None
     ) -> pl.DataFrame:
+        """
+        Changes: Explicitly handles "UNKNOWN" ICD codes (from unmapped ICD9 or otherwise).
+        Instead of splitting "UNKNOWN" into characters, it maps them to "ICD//PCS//UNKNOWN".
+        """
         df = icd10_df.with_columns(
-            pl.col("text_value").str.split_exact("", 6).alias("code")
+            pl.when(pl.col("text_value") == "UNKNOWN")
+            .then(pl.lit(None))
+            .otherwise(pl.col("text_value").str.split_exact("", 6))
+            .alias("code")
         ).with_columns(
             code=pl.concat_list(
-                pl.when(pl.col("code").struct[i] != "").then(
-                    pl.lit("ICD//PCS//") + pl.col("code").struct[i]
+                pl.when(pl.col("text_value") == "UNKNOWN")
+                .then(pl.concat_list(pl.lit("ICD//PCS//UNKNOWN")))
+                .otherwise(
+                    pl.concat_list(
+                        pl.when(
+                            pl.col("code").struct[i].is_not_null() 
+                            & (pl.col("code").struct[i] != "")
+                        ).then(
+                            pl.lit("ICD//PCS//") + pl.col("code").struct[i]
+                        )
+                        for i in range(7)
+                    )
                 )
-                for i in range(7)
             ).list.drop_nulls()
         )
         if vocab is not None:
             # all characters have to be in the vocab to keep the code
+            # Allow UNKNOWN to pass through if it's the only code
             df = df.filter(
-                pl.col("code").list.eval(pl.element().is_in(vocab)).list.all()
+                (pl.col("code").list.len() == 1) & (pl.col("code").list.first() == "ICD//PCS//UNKNOWN")
+                | pl.col("code").list.eval(pl.element().is_in(vocab)).list.all()
             )
         return df.explode("code").drop_nulls("code")
 
@@ -533,6 +585,7 @@ class MedicationData:
     def convert_to_atc(
         df: pl.DataFrame, vocab: list[str] | None = None
     ) -> pl.DataFrame:
+        """Changes: Unmapped medications are mapped to 'MEDICATION//UNKNOWN' instead of being dropped."""
         from ..mappings import get_atc_code_to_desc, get_mimic_drug_name_to_atc_mapping
 
         drug_to_atc = get_mimic_drug_name_to_atc_mapping()
@@ -555,7 +608,9 @@ class MedicationData:
                 .str.strip_chars(" ")
                 .str.to_lowercase()
                 .replace_strict(
-                    drug_to_atc, default=None, return_dtype=pl.List(pl.String)
+                    drug_to_atc,
+                    default=["MEDICATION//UNKNOWN"],
+                    return_dtype=pl.List(pl.String),
                 )
             )
             .with_columns(
@@ -573,7 +628,14 @@ class MedicationData:
                 for col, slice in zip(temp_cols, code_slices)
             )
             .with_columns(
-                pl.when(pl.col(col) != "")
+                # Logic for handling unknown medications: avoid adding standard prefixes or
+                # looking up descriptions. Instead, place the unknown token in the first
+                # component column ('pfx') and leave the others null.
+                pl.when(pl.col("text_value") == "MEDICATION//UNKNOWN")
+                .then(
+                    pl.lit("MEDICATION//UNKNOWN") if col == "pfx" else pl.lit(None)
+                )
+                .when(pl.col(col) != "")
                 .then(
                     pl.lit(pfx)
                     + pl.col(col)
@@ -638,9 +700,15 @@ class LabData:
         known_lab_names = list(counts.keys())[:200] if vocab is None else vocab
         return (
             # Removed unify_code_names call as matching was failing
-            df.filter(pl.col("code").is_in(known_lab_names))
-            .with_columns(
-                pl.concat_list("code", pl.lit("Q//LABORATORY_RESULT//") + pl.col("code").str.slice(5))
+            df.with_columns(
+                code=pl.when(pl.col("code").is_in(known_lab_names))
+                .then(
+                    pl.concat_list(
+                        pl.col("code"),
+                        pl.lit("Q//") + pl.col("code"),
+                    )
+                )
+                .otherwise(pl.concat_list(pl.lit("LABORATORY_RESULT//UNKNOWN")))
             )
             .explode("code")
         )

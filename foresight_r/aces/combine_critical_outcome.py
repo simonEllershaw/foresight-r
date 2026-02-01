@@ -16,15 +16,16 @@ from pathlib import Path
 import polars as pl
 
 
-def combine_critical_outcomes(aces_output_dir: Path) -> None:
+def combine_critical_outcomes(
+    icu_dir: Path, mortality_dir: Path, output_dir: Path
+) -> None:
     """Combine critical outcome tasks using OR logic on boolean_value.
 
     Args:
-        aces_output_dir: Path to the ACES output directory.
+        icu_dir: Path to the ICU 12h task directory.
+        mortality_dir: Path to the in-hospital mortality task directory.
+        output_dir: Path to the combined output directory.
     """
-    icu_dir = aces_output_dir / "critical_outcome_icu_12h"
-    mortality_dir = aces_output_dir / "critical_outcome_in_hospital_mortality"
-    output_dir = aces_output_dir / "critical_outcome"
 
     if not icu_dir.exists():
         print(f"Error: ICU directory not found: {icu_dir}")
@@ -87,17 +88,30 @@ def main() -> None:
         description="Combine critical outcome ACES tasks using OR logic."
     )
     parser.add_argument(
-        "aces_output_dir",
+        "icu_dir",
         type=Path,
-        help="Path to the ACES output directory.",
+        help="Path to the ICU 12h task directory.",
+    )
+    parser.add_argument(
+        "mortality_dir",
+        type=Path,
+        help="Path to the in-hospital mortality task directory.",
+    )
+    parser.add_argument(
+        "output_dir",
+        type=Path,
+        help="Path to the combined output directory.",
     )
     args = parser.parse_args()
 
-    if not args.aces_output_dir.exists():
-        print(f"Error: Directory does not exist: {args.aces_output_dir}")
+    if not args.icu_dir.exists():
+        print(f"Error: ICU directory does not exist: {args.icu_dir}")
+        sys.exit(1)
+    if not args.mortality_dir.exists():
+        print(f"Error: Mortality directory does not exist: {args.mortality_dir}")
         sys.exit(1)
 
-    combine_critical_outcomes(args.aces_output_dir)
+    combine_critical_outcomes(args.icu_dir, args.mortality_dir, args.output_dir)
 
 
 if __name__ == "__main__":

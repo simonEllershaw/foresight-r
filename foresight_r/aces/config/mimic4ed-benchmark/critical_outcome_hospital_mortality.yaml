@@ -1,0 +1,36 @@
+metadata:
+  description: >-
+    Given a patient's historical electronic health record up to and including their arrival and triage at the Emergency Department,
+    predict the probability of the patient dying in the hospital during their stay.
+
+predicates:
+  ed_arrival:
+    code: EMERGENCY_DEPARTMENT_REGISTRATION//ARRIVAL_TRANSPORT
+
+  # Either hospital or ED discharge (excluding ED admission)
+  # Hack: Enumerate all possible ED discharge locations apart from admitted as negation/regex lookaheads are not supported
+  discharge:
+    code: {regex: "HOSPITAL_DISCHARGE//DISCHARGE_LOCATION//.*|EMERGENCY_DEPARTMENT_DISCHARGE//DISCHARGE_LOCATION//(OTHER|TRANSFER|LEFT_WITHOUT_BEING_SEEN|LEFT_AGAINST_MEDICAL_ADVICE|HOME|ELOPED)"}
+
+  # Use this instead of death token to avoid issues with dod being timestamped to EOD and so being after discharge time
+  # Also ~neatly defines inhospital mortality
+  hosp_discharge_death:
+    code: "HOSPITAL_DISCHARGE//DISCHARGE_LOCATION//DIED"
+
+trigger: ed_arrival
+
+windows:
+  input:
+    start: NULL # Include all events prior to ED arrival
+    end: trigger
+    start_inclusive: True # Include all events up to and including ED arrival (e.g. triage)
+    end_inclusive: True
+    index_timestamp: end
+
+  target:
+    # True if discharge is a hospital death discharge
+    start: trigger
+    end: start -> discharge
+    start_inclusive: True
+    end_inclusive: True
+    label: hosp_discharge_death

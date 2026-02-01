@@ -21,7 +21,7 @@ MIMIC_MEDS_SCRIPT_DIR := scripts/meds/mimic
 N_WORKERS             := 1
 
 ACES_OUTPUT_DIR := data/aces_outputs
-ACES_CONFIG_DIR := scripts/aces/mimic4ed-benchmark
+ACES_CONFIG_DIR := foresight_r/aces/config/mimic4ed-benchmark
 ACES_COHORTS := $(notdir $(basename $(wildcard $(ACES_CONFIG_DIR)/*.yaml)))
 
 .PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data meds sample_markdown_file test aces_outputs ethos-tokenization meds-to-markdown
@@ -108,9 +108,12 @@ aces-labels:
 			cohort_name="$$cohort"; \
 	done
 
-	@echo "Combining critical_outcome_icu_12h and critical_outcome_in_hospital_mortality" \
+	@echo "Combining critical_outcome_icu_12h and critical_outcome_hospital_mortality" \
 		"into critical_outcome using OR logic."
-	uv run combine-critical-outcome $(ACES_OUTPUT_DIR)
+	uv run combine-critical-outcome \
+		$(ACES_OUTPUT_DIR)/critical_outcome_icu_12h \
+		$(ACES_OUTPUT_DIR)/critical_outcome_hospital_mortality \
+		$(ACES_OUTPUT_DIR)/critical_outcome
 
 	@echo "All ACES task definitions share the same trigger point" \
 		"(ED arrival). So check that for each shard, the subject_ids" \

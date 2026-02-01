@@ -22,8 +22,9 @@ ed/edstays:
     code:
       - "EMERGENCY_DEPARTMENT_DISCHARGE"
       - "DISCHARGE_LOCATION" # Discharge location matches hospital discharge location
+      - col(disposition)
     time: col(outtime)
-    text_value: disposition
+    # text_value: disposition
     time_format: "%Y-%m-%d %H:%M:%S"
     # hadm_id: hadm_id
     # stay_id: stay_id

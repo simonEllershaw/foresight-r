@@ -1,15 +1,15 @@
 metadata:
   description: >-
     Given a patient's historical electronic health record up to and including their arrival and triage at the Emergency Department,
-    predict the probability of the patient being admitted to the ICU within 12 hours of discharge from the Emergency Department.
+    predict the probability of admitting the patient to the hospital from the Emergency Department.
 
 predicates:
   ed_arrival:
     code: EMERGENCY_DEPARTMENT_REGISTRATION//ARRIVAL_TRANSPORT
   ed_discharge:
     code: {regex: "EMERGENCY_DEPARTMENT_DISCHARGE//DISCHARGE_LOCATION//.*"}
-  icu_admission:
-    code: {regex: "ICU_ADMISSION//.*"}
+  ed_discharge_admitted:
+    code: "EMERGENCY_DEPARTMENT_DISCHARGE//DISCHARGE_LOCATION//ADMITTED"
 
 trigger: ed_arrival
 
@@ -17,20 +17,16 @@ windows:
   input:
     start: NULL # Include all events prior to ED arrival
     end: trigger
-    start_inclusive: True # Include all events up to and including ED arrival (e.g. triage)
-    end_inclusive: True
+    start_inclusive: True
+    end_inclusive: True # Include all events up to and including ED arrival (e.g. triage)
     index_timestamp: end
 
-  ed_stay:
-    start: input.end
+  target:
+    # Target true if ed_discharge event has location value ADMITTED
+    start: trigger
     end: start -> ed_discharge
+
     start_inclusive: True
     end_inclusive: True
 
-  target:
-    # True if icu_admission event occurs within 12 hours of ED discharge
-    start: ed_stay.end
-    end: start + 12h
-    start_inclusive: True
-    end_inclusive: True
-    label: icu_admission
+    label: ed_discharge_admitted

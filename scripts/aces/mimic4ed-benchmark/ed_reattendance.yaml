@@ -1,0 +1,36 @@
+metadata:
+  description: >-
+    Given a patient's historical electronic health record up to and including their arrival and triage at the Emergency Department,
+    predict the probability of the patient returning to the Emergency Department within 72 hours of discharge from the Emergency Department.
+
+predicates:
+  ed_arrival:
+    code: EMERGENCY_DEPARTMENT_REGISTRATION//ARRIVAL_TRANSPORT
+  ed_discharge:
+    code: {regex: "EMERGENCY_DEPARTMENT_DISCHARGE//DISCHARGE_LOCATION//.*"}
+
+trigger: ed_arrival
+
+windows:
+  input:
+    start: NULL # Include all events prior to ED arrival
+    end: trigger
+    start_inclusive: True
+    end_inclusive: True # Include all events up to and including ED arrival (e.g. triage)
+    index_timestamp: end
+
+  ed_stay:
+    start: input.end
+    end: start -> ed_discharge
+    start_inclusive: True
+    end_inclusive: True
+
+  target:
+    # Target true if next ed_arrival event occurs within 72 hours of ED discharge
+    start: ed_stay.end
+    end: start + 72h
+
+    start_inclusive: True
+    end_inclusive: True
+
+    label: ed_arrival

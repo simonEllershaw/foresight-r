@@ -21,6 +21,8 @@ MIMIC_MEDS_SCRIPT_DIR := scripts/meds/mimic
 N_WORKERS             := 1
 
 ACES_OUTPUT_DIR := data/aces_outputs
+ACES_CONFIG_DIR := scripts/aces/mimic4ed-benchmark
+ACES_COHORTS := $(notdir $(basename $(wildcard $(ACES_CONFIG_DIR)/*.yaml)))
 
 .PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data meds sample_markdown_file test aces_outputs ethos-tokenization meds-to-markdown
 
@@ -94,13 +96,17 @@ sample_markdown_file:
 test:
 	uv run pytest
 
-aces_outputs:
-	uv run aces-cli data.path="data/mimic-iv-meds/data/train" \
-		data.standard="meds" \
-		config_path="scripts/aces/sample/readmission.yaml" \
-		cohort_dir=$(ACES_OUTPUT_DIR) \
-		cohort_name="readmission" \
-		output_filepath="$(ACES_OUTPUT_DIR)/readmission.parquet" \
+aces-outputs:
+	@rm -rf $(ACES_OUTPUT_DIR)
+	for cohort in $(ACES_COHORTS); do \
+		uv run aces-cli -m data=sharded \
+			data.root="data/mimic-iv-meds/data" \
+			"data.shard=$$(uv run expand_shards train/1 test/1)" \
+			data.standard="meds" \
+			config_path="$(ACES_CONFIG_DIR)/$$cohort.yaml" \
+			cohort_dir=$(ACES_OUTPUT_DIR) \
+			cohort_name="$$cohort"; \
+	done
 
 ethos-tokenization:
 	PYTHONPATH=external/ethos-ares/src uv run python -m ethos.tokenize.run_tokenization input_dir=data/mimic-iv-meds/data/train output_dir=data/mimic-iv-ethos-tokenized out_fn=train overwrite=True

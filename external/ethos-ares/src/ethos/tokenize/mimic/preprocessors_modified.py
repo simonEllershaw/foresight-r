@@ -727,5 +727,7 @@ class EdData:
     @MatchAndRevise(prefix="EMERGENCY_DEPARTMENT_DISCHARGE")
     def process_ed_discharges(df: pl.DataFrame) -> pl.DataFrame:
         return df.with_columns(
+            text_value=pl.col("code").str.split("//").list.get(2, null_on_oob=True)
+        ).with_columns(
             code=get_discharge_location_expr()
         )

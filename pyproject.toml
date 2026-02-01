@@ -59,7 +59,7 @@ custom-meds-transform-drop-by-regex = "foresight_r.transforms.drop_by_regex:main
 custom-meds-transform-replace-code-with-text-value-by-prefix = "foresight_r.transforms.replace_code_with_text_value_by_prefix:main"
 custom-meds-transform-order-events = "foresight_r.transforms.order_events:main"
 
-
+validate-aces-prediction-times = "foresight_r.aces.validate_prediction_times:main"
 [tool.black]
 line-length = 88
 target-version = ['py313']

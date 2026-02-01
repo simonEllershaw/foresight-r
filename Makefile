@@ -96,7 +96,7 @@ sample_markdown_file:
 test:
 	uv run pytest
 
-aces-outputs:
+aces-labels:
 	@rm -rf $(ACES_OUTPUT_DIR)
 	for cohort in $(ACES_COHORTS); do \
 		uv run aces-cli -m data=sharded \
@@ -107,6 +107,11 @@ aces-outputs:
 			cohort_dir=$(ACES_OUTPUT_DIR) \
 			cohort_name="$$cohort"; \
 	done
+
+	@echo "All ACES task definitions share the same trigger point" \
+		"(ED arrival). So check that for each shard, the subject_ids" \
+		"and prediction_times are identical across tasks."
+	uv run validate-aces-prediction-times $(ACES_OUTPUT_DIR)
 
 ethos-tokenization:
 	PYTHONPATH=external/ethos-ares/src uv run python -m ethos.tokenize.run_tokenization input_dir=data/mimic-iv-meds/data/train output_dir=data/mimic-iv-ethos-tokenized out_fn=train overwrite=True

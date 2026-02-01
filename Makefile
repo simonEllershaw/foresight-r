@@ -118,7 +118,12 @@ aces-labels:
 	uv run validate-aces-prediction-times $(ACES_OUTPUT_DIR)
 
 ethos-tokenization:
-	PYTHONPATH=external/ethos-ares/src uv run python -m ethos.tokenize.run_tokenization input_dir=data/mimic-iv-meds/data/train output_dir=data/mimic-iv-ethos-tokenized out_fn=train overwrite=True
+	PYTHONPATH=external/ethos-ares/src \
+	uv run python -m ethos.tokenize.run_tokenization \
+		input_dir=data/mimic-iv-meds/data/train \
+		output_dir=data/mimic-iv-ethos-tokenized \
+		out_fn=train \
+		overwrite=True
 
 # ------------------------------------------------------------------------------
 # MEDS to Markdown Targets

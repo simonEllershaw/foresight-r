@@ -108,6 +108,10 @@ aces-labels:
 			cohort_name="$$cohort"; \
 	done
 
+	@echo "Combining critical_outcome_icu_12h and critical_outcome_in_hospital_mortality" \
+		"into critical_outcome using OR logic."
+	uv run combine-critical-outcome $(ACES_OUTPUT_DIR)
+
 	@echo "All ACES task definitions share the same trigger point" \
 		"(ED arrival). So check that for each shard, the subject_ids" \
 		"and prediction_times are identical across tasks."

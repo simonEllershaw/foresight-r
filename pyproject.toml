@@ -60,6 +60,8 @@ custom-meds-transform-replace-code-with-text-value-by-prefix = "foresight_r.tran
 custom-meds-transform-order-events = "foresight_r.transforms.order_events:main"
 
 validate-aces-prediction-times = "foresight_r.aces.validate_prediction_times:main"
+combine-critical-outcome = "foresight_r.aces.combine_critical_outcome:main"
+
 [tool.black]
 line-length = 88
 target-version = ['py313']

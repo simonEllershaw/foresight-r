@@ -1,0 +1,29 @@
+metadata:
+  description: >-
+    Task: Predict at ED arrival if the patient will be admitted to the ICU within 12 hours of ED discharge.
+
+predicates:
+  ed_arrival:
+    code: EMERGENCY_DEPARTMENT_REGISTRATION//ARRIVAL_TRANSPORT
+  ed_discharge:
+    code: EMERGENCY_DEPARTMENT_DISCHARGE//DISCHARGE_LOCATION
+  icu_admission:
+    code: {regex: "ICU_ADMISSION//.*"}
+
+trigger: ed_arrival
+
+windows:
+  input:
+    start: NULL # Include all events prior to ED arrival
+    end: trigger
+    start_inclusive: True # Include all events up to and including ED arrival (e.g. triage)
+    end_inclusive: True
+    index_timestamp: end
+
+  target:
+    # True if icu_admission event occurs within 12 hours of ED discharge
+    start: ed_discharge
+    end: start + 12h
+    start_inclusive: True
+    end_inclusive: True
+    label: icu_admission

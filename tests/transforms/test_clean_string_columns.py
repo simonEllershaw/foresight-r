@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.clean_string_columns import clean_string_columns_fntr
+from foresight_r.meds.transforms.clean_string_columns import clean_string_columns_fntr
 
 
 @pytest.fixture

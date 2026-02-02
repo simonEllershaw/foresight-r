@@ -6,7 +6,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.calculate_age import calculate_age_fntr
+from foresight_r.meds.transforms.calculate_age import calculate_age_fntr
 
 
 @pytest.fixture

@@ -472,7 +472,7 @@ ICD_DFS_TO_FIX = [
 ]
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="pre_MEDS")
+@hydra.main(version_base=None, config_path="config/transforms", config_name="pre_MEDS")
 def main(cfg: DictConfig):
     """Performs pre-MEDS data wrangling for MIMIC-IV.
 

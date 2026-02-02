@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.append_values import append_values_fntr
+from foresight_r.meds.transforms.append_values import append_values_fntr
 
 
 @pytest.fixture

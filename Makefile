@@ -17,7 +17,8 @@ MIMICIV_PRE_MEDS_DIR := data/mimic-iv-premeds
 MIMICIV_MEDS_DIR     := data/mimic-iv-meds
 MEDS_MARKDOWN_DIR    := data/mimic-iv-markdown
 
-MIMIC_MEDS_SCRIPT_DIR := scripts/meds/mimic
+MIMIC_MEDS_DIR_SRC := foresight_r/meds/mimic
+MEDS_TO_MARKDOWN_DIR  := foresight_r/meds/to_markdown
 N_WORKERS             := 1
 
 ACES_OUTPUT_DIR := data/aces_outputs
@@ -76,7 +77,7 @@ download-demo-data: download-mimic-demo download-mimic-ed-demo
 meds:
 	@echo "Running pre-MEDS processing..."
 	@rm -rf $(MIMICIV_PRE_MEDS_DIR)
-	uv run python "$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/pre_MEDS.py" \
+	uv run python "$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/pre_MEDS.py" \
 		input_dir="$(CURDIR)/$(MIMICIV_RAW_DIR)" \
 		cohort_dir="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)"
 
@@ -84,11 +85,11 @@ meds:
 	@rm -rf $(MIMICIV_MEDS_DIR)
 	INPUT_DIR="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)" \
 	COHORT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
-	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/event_configs-ed-foresight.yaml" \
+	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/schemas/event_configs-ed-foresight.yaml" \
 	N_WORKERS=$(N_WORKERS) \
 	uv run MEDS_transform-runner \
-		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/extract_MIMIC.yaml" \
-		stage_runner_fp="$(CURDIR)/scripts/meds/local_parallelism_runner.yaml"
+		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/transforms/extract_MIMIC.yaml" \
+		stage_runner_fp="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/transforms/local_parallelism_runner.yaml"
 
 sample_markdown_file:
 	uv run python scripts/sandbox/convert_patient_to_md.py
@@ -140,5 +141,5 @@ meds-to-markdown:
 	COHORT_DIR="$(CURDIR)/$(MEDS_MARKDOWN_DIR)" \
 	N_WORKERS=$(N_WORKERS) \
 	uv run MEDS_transform-runner \
-		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_SCRIPT_DIR)/configs/meds_to_markdown.yaml" \
-		stage_runner_fp="$(CURDIR)/scripts/meds/local_parallelism_runner.yaml"
+		pipeline_config_fp="$(CURDIR)/$(MEDS_TO_MARKDOWN_DIR)/config/meds_to_markdown.yaml" \
+		stage_runner_fp="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/transforms/local_parallelism_runner.yaml"

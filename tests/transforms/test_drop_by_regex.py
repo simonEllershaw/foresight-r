@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.drop_by_regex import drop_by_regex_fntr
+from foresight_r.meds.transforms.drop_by_regex import drop_by_regex_fntr
 
 
 def test_drop_single_pattern():

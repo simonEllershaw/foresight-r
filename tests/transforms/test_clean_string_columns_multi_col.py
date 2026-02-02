@@ -1,7 +1,7 @@
 import polars as pl
 from omegaconf import DictConfig
 
-from foresight_r.transforms.clean_string_columns import clean_string_columns_fntr
+from foresight_r.meds.transforms.clean_string_columns import clean_string_columns_fntr
 
 
 def test_clean_string_columns_multiple_columns():

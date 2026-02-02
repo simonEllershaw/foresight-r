@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.create_prefix_column import create_prefix_column_fntr
+from foresight_r.meds.transforms.create_prefix_column import create_prefix_column_fntr
 
 
 @pytest.fixture

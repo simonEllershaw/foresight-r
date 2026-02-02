@@ -3,7 +3,7 @@
 import polars as pl
 from omegaconf import DictConfig
 
-from foresight_r.transforms.filter_by_text_value import (
+from foresight_r.meds.transforms.filter_by_text_value import (
     filter_by_text_value_fntr,
 )
 

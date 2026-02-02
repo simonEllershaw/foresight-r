@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.order_events import order_events
+from foresight_r.meds.transforms.order_events import order_events
 
 
 def test_order_basic():

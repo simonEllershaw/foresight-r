@@ -6,7 +6,7 @@ import polars as pl
 import pytest
 from omegaconf import DictConfig
 
-from foresight_r.transforms.add_time_column import add_time_column_fntr
+from foresight_r.meds.transforms.add_time_column import add_time_column_fntr
 
 
 @pytest.fixture

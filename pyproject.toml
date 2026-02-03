@@ -22,6 +22,10 @@ dependencies = [
     "hydra-joblib-launcher>=1.2.0",
     "datasets>=4.0.0",
     "torch>=2.9.1",
+    "transformers>=4.40.0",
+    "pyyaml>=6.0.0",
+    "bitsandbytes>=0.43.0",
+    "accelerate>=0.30.0",
 ]
 
 [project.optional-dependencies]
@@ -61,6 +65,7 @@ custom-meds-transform-order-events = "foresight_r.meds.transforms.order_events:m
 validate-aces-prediction-times = "foresight_r.aces.validate_prediction_times:main"
 combine-critical-outcome = "foresight_r.aces.combine_critical_outcome:main"
 create-nl-dataset = "foresight_r.meds.nl_dataset.create_nl_dataset:main"
+run-llm-inference = "foresight_r.inference.run_inference:main"
 
 [tool.black]
 line-length = 88

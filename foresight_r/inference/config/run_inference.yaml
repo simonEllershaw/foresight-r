@@ -1,0 +1,41 @@
+model_path: ???  # Required: path to local HuggingFace model weights
+dataset_dir: ???  # Required: directory of natural language datasets
+split: ???  # Required: split to run inference on (train, held_out, tuning)
+output_dir: ???  # Required: directory to save outputs
+
+# Inference settings
+batch_size: 8
+
+tokenization:
+  max_length: 2048
+  enable_thinking: false
+
+# Inference generation settings
+# https://huggingface.co/Qwen/Qwen3-0.6B#best-practices
+generation:
+  max_new_tokens: 256
+  do_sample: true
+  use_cache: true
+  temperature: 0.7
+  top_k: 20
+  top_p: 0.8
+  min_p: 0
+
+# Quantization (for memory-constrained GPUs)
+load_in_4bit: false
+load_in_8bit: false
+
+# Optional: limit number of samples per shard (for debugging)
+max_samples: 8
+
+# Optional specific tasks to process (null = all tasks)
+tasks:
+  - ed_reattendance
+
+hydra:
+  run:
+    dir: ${output_dir}/${split}/${now:%Y%m%d_%H%M%S}
+  sweep:
+    dir: ${output_dir}/${split}/${now:%Y%m%d_%H%M%S}
+  job:
+    chdir: false

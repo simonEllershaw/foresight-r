@@ -141,3 +141,14 @@ nl-dataset:
 	LABELS_DIR="$(CURDIR)/$(ACES_OUTPUT_DIR)" \
 	OUTPUT_DIR="$(CURDIR)/$(NL_DATASET_DIR)" \
 	uv run create-nl-dataset
+
+download-qwen-8B:
+	uvx hf auth login
+	uvx hf download Qwen/Qwen3-0.6B --local-dir ./models/Qwen3-0.6B
+
+inference:
+	uv run run-llm-inference \
+		model_path=./models/Qwen3-0.6B \
+		dataset_dir=data/mimic-iv-nl-dataset \
+		split=train \
+		output_dir=outputs/inference \

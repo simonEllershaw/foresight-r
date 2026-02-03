@@ -52,7 +52,6 @@ custom-meds-transform-calculate-age = "foresight_r.meds.transforms.calculate_age
 custom-meds-transform-add-time-column = "foresight_r.meds.transforms.add_time_column:main"
 custom-meds-transform-filter-null-values = "foresight_r.meds.transforms.filter_null_values:main"
 custom-meds-transform-filter-by-text-value = "foresight_r.meds.transforms.filter_by_text_value:main"
-custom-meds-transform-convert-to-markdown = "foresight_r.meds.transforms.convert_to_markdown:main"
 custom-meds-transform-append-values = "foresight_r.meds.transforms.append_values:main"
 
 custom-meds-transform-drop-by-regex = "foresight_r.meds.transforms.drop_by_regex:main"
@@ -61,6 +60,7 @@ custom-meds-transform-order-events = "foresight_r.meds.transforms.order_events:m
 
 validate-aces-prediction-times = "foresight_r.aces.validate_prediction_times:main"
 combine-critical-outcome = "foresight_r.aces.combine_critical_outcome:main"
+create-nl-dataset = "foresight_r.meds.nl_dataset.create_nl_dataset:main"
 
 [tool.black]
 line-length = 88

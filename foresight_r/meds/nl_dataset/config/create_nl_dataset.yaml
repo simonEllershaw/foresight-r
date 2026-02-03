@@ -1,0 +1,63 @@
+# Natural Language Dataset Pipeline Configuration
+# Converts MEDS data + ACES labels to markdown text for LLM training
+#
+# Environment variables:
+#   MEDS_DIR: Path to MEDS data directory (e.g., data/mimic-iv-meds/data)
+#   LABELS_DIR: Path to ACES labels directory (e.g., data/mimic-iv-aces-labels)
+#   OUTPUT_DIR: Path to output directory (e.g., data/mimic-iv-nl-dataset)
+
+meds_dir: ${oc.env:MEDS_DIR}
+labels_dir: ${oc.env:LABELS_DIR}
+output_dir: ${oc.env:OUTPUT_DIR}
+
+do_overwrite: false
+
+log_dir: ${output_dir}/.logs
+
+# Transform configurations (matching meds_to_markdown.yaml)
+stage_configs:
+  drop_age_events:
+    patterns:
+      - "^EMERGENCY_DEPARTMENT_TRIAGE//AGE"
+      - "^HOSPITAL_ADMISSION//AGE"
+
+  append_values:
+    join_char: " "
+
+  create_prefix_column: {}
+
+  replace_icd_code_with_text_description:
+    prefixes:
+      - "EMERGENCY_DEPARTMENT_DIAGNOSIS"
+      - "HOSPITAL_DIAGNOSIS"
+      - "HOSPITAL_PROCEDURE"
+      - "DIAGNOSIS_RELATED_GROUPS"
+
+  clean_string_columns:
+    column:
+      - code
+      - prefix
+    to_titlecase: true
+    patterns:
+      - pattern: '_|//'
+        replacement: " "
+      - pattern: '(\s){2,}'
+        replacement: " "
+
+  calculate_age:
+    birth_prefix: "Birth"
+    drop_birth_rows: true
+
+  add_time_column:
+    time_format: "%H:%M"
+    replace_end_of_day: true
+    end_of_day_fill_value: null
+
+# Hydra configuration
+hydra:
+  job:
+    name: create_nl_dataset_${now:%Y-%m-%d_%H-%M-%S}
+  run:
+    dir: ${log_dir}
+  sweep:
+    dir: ${log_dir}

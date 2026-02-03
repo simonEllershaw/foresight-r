@@ -30,10 +30,9 @@ stage_configs:
   split_and_shard_subjects:
     n_subjects_per_shard: 20000
     split_fracs:
-      train: 0.9
-      test: 0.1
-      tuning: null
-      held_out: null
+      train: 0.8
+      tuning: 0.1
+      held_out: 0.1
   create_prefix_column:
     _script: custom-meds-transform-create-prefix-column
   filter_null_measurement_values:

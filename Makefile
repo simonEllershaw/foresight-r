@@ -15,17 +15,15 @@ MIMICIV_RAW_DIR      := data/mimic-iv
 MIMICIV_ED_RAW_DIR   := data/mimic-iv-ed
 MIMICIV_PRE_MEDS_DIR := data/mimic-iv-premeds
 MIMICIV_MEDS_DIR     := data/mimic-iv-meds
-MEDS_MARKDOWN_DIR    := data/mimic-iv-markdown
 
 MIMIC_MEDS_DIR_SRC := foresight_r/meds/mimic
-MEDS_TO_MARKDOWN_DIR  := foresight_r/meds/to_markdown
-N_WORKERS             := 1
+N_WORKERS          := 1
 
-ACES_OUTPUT_DIR := data/aces_outputs
+ACES_OUTPUT_DIR := data/mimic-iv-aces-labels
 ACES_CONFIG_DIR := foresight_r/aces/config/mimic4ed-benchmark
 ACES_COHORTS := $(notdir $(basename $(wildcard $(ACES_CONFIG_DIR)/*.yaml)))
 
-.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data meds sample_markdown_file test aces_outputs ethos-tokenization meds-to-markdown
+.PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data meds sample_markdown_file test aces_outputs ethos-tokenization nl-dataset
 
 # ------------------------------------------------------------------------------
 # Helper Functions
@@ -102,7 +100,7 @@ aces-labels:
 	for cohort in $(ACES_COHORTS); do \
 		uv run aces-cli -m data=sharded \
 			data.root="data/mimic-iv-meds/data" \
-			"data.shard=$$(uv run expand_shards train/1 test/1)" \
+			"data.shard=$$(uv run expand_shards train/1 held_out/1 tuning/1)" \
 			data.standard="meds" \
 			config_path="$(ACES_CONFIG_DIR)/$$cohort.yaml" \
 			cohort_dir=$(ACES_OUTPUT_DIR) \
@@ -129,17 +127,17 @@ ethos-tokenization:
 		out_fn=train \
 		overwrite=True
 
+
 # ------------------------------------------------------------------------------
-# MEDS to Markdown Targets
+# Natural Language Dataset Target
 # ------------------------------------------------------------------------------
 
-meds-to-markdown:
-	@rm -rf $(MEDS_MARKDOWN_DIR)
-	@mkdir -p $(MEDS_MARKDOWN_DIR)
-	@echo "Converting MEDS to markdown format..."
-	INPUT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
-	COHORT_DIR="$(CURDIR)/$(MEDS_MARKDOWN_DIR)" \
-	N_WORKERS=$(N_WORKERS) \
-	uv run MEDS_transform-runner \
-		pipeline_config_fp="$(CURDIR)/$(MEDS_TO_MARKDOWN_DIR)/config/meds_to_markdown.yaml" \
-		stage_runner_fp="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/transforms/local_parallelism_runner.yaml"
+NL_DATASET_DIR := data/mimic-iv-nl-dataset
+
+nl-dataset:
+	@rm -rf $(NL_DATASET_DIR)
+	@echo "Creating natural language dataset from MEDS with ACES labels..."
+	MEDS_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)/data" \
+	LABELS_DIR="$(CURDIR)/$(ACES_OUTPUT_DIR)" \
+	OUTPUT_DIR="$(CURDIR)/$(NL_DATASET_DIR)" \
+	uv run create-nl-dataset

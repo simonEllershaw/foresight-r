@@ -4,7 +4,7 @@ split: ???  # Required: split to run inference on (train, held_out, tuning)
 output_dir: ???  # Required: directory to save outputs
 
 # Inference settings
-batch_size: 8
+batch_size: 32
 
 tokenization:
   max_prompt_length: 1024
@@ -27,6 +27,9 @@ load_in_8bit: false
 
 # Model data type (null = auto-detect, float16, bfloat16, float32)
 model_dtype: bfloat16
+
+# Optional: compile model for faster inference (adds startup time)
+compile_model: true
 
 # Optional: limit number of samples per shard (for debugging)
 max_samples: null

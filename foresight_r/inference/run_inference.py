@@ -10,6 +10,7 @@ Usage:
 """
 
 import logging
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -190,7 +191,7 @@ def run_batch_inference(
     )
 
     # Generate
-    with torch.no_grad():
+    with torch.inference_mode():
         outputs = model.generate(**inputs, **generation_config)
 
     # Decode outputs
@@ -266,6 +267,7 @@ def process_shard(
     task_description = load_task_description(task_name)
 
     # Create prompts
+    num_proc = max(1, os.cpu_count() or 1)
     dataset = dataset.map(
         lambda text: {
             "prompt": create_prompt(
@@ -278,6 +280,7 @@ def process_shard(
         input_columns="text",
         desc=f"Creating prompts for {task_name} shard {shard_name}",
         keep_in_memory=True,
+        num_proc=num_proc,
     )
 
     dataset = dataset.map(
@@ -340,6 +343,10 @@ def run_inference(cfg: DictConfig) -> None:
         load_in_8bit=cfg.load_in_8bit,
         model_dtype=cfg.model_dtype,
     )
+
+    if cfg.get("compile_model", False):
+        logger.info("Compiling model with torch.compile...")
+        model = torch.compile(model)
 
     # Discover shards
     shards = discover_shards(dataset_dir, split)

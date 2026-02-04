@@ -7,13 +7,13 @@ output_dir: ???  # Required: directory to save outputs
 batch_size: 8
 
 tokenization:
-  max_length: 2048
+  max_length: 512
   enable_thinking: false
 
 # Inference generation settings
 # https://huggingface.co/Qwen/Qwen3-0.6B#best-practices
 generation:
-  max_new_tokens: 256
+  max_new_tokens: 128
   do_sample: true
   use_cache: true
   temperature: 0.7
@@ -24,6 +24,9 @@ generation:
 # Quantization (for memory-constrained GPUs)
 load_in_4bit: false
 load_in_8bit: false
+
+# Model data type (null = auto-detect, float16, bfloat16, float32)
+model_dtype: bfloat16
 
 # Optional: limit number of samples per shard (for debugging)
 max_samples: 8

@@ -42,6 +42,7 @@ def load_model_and_tokenizer(
     device: torch.device,
     load_in_4bit: bool = False,
     load_in_8bit: bool = False,
+    model_dtype: str | None = None,
 ) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     """Load model and tokeniser from local path.
 
@@ -50,6 +51,7 @@ def load_model_and_tokenizer(
         device: Device to load model onto.
         load_in_4bit: Enable 4-bit quantization (requires CUDA).
         load_in_8bit: Enable 8-bit quantization (requires CUDA).
+        model_dtype: Override data type (float16, bfloat16, float32).
 
     Returns:
         Tuple of (model, tokenizer).
@@ -62,6 +64,22 @@ def load_model_and_tokenizer(
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    # Determine best dtype
+    dtype_map = {
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "float32": torch.float32,
+    }
+
+    if model_dtype in dtype_map:
+        resolved_dtype = dtype_map[model_dtype]
+    elif device.type == "cuda" and torch.cuda.is_bf16_supported():
+        resolved_dtype = torch.bfloat16
+    elif device.type in ("cuda", "mps"):
+        resolved_dtype = torch.float16
+    else:
+        resolved_dtype = torch.float32
+
     # Configure quantization if requested
     quantization_config = None
     if load_in_4bit or load_in_8bit:
@@ -73,14 +91,17 @@ def load_model_and_tokenizer(
             quantization_config = BitsAndBytesConfig(
                 load_in_4bit=load_in_4bit,
                 load_in_8bit=load_in_8bit,
-                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_compute_dtype=resolved_dtype,
                 bnb_4bit_use_double_quant=True,
             )
-            logger.info(f"Using {'4-bit' if load_in_4bit else '8-bit'} quantization")
+            logger.info(
+                f"Using {'4-bit' if load_in_4bit else '8-bit'} quantization "
+                f"with compute dtype {resolved_dtype}"
+            )
 
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        dtype=torch.float16 if device.type in ("cuda", "mps") else torch.float32,
+        dtype=resolved_dtype,
         device_map="auto" if device.type == "cuda" else None,
         quantization_config=quantization_config,
     )
@@ -165,32 +186,22 @@ def run_batch_inference(
         List of generated text outputs.
     """
     # Tokenize prompts
-    inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True).to(
+    inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=False).to(
         model.device
     )
 
     # Generate
     with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            **generation_config,
-            pad_token_id=tokenizer.pad_token_id,
-        )
+        outputs = model.generate(**inputs, **generation_config)
 
     # Decode outputs
-    generated_texts = []
-    for i, output in enumerate(outputs):
-        # Decode only the new tokens
-        input_len = inputs["input_ids"][i].shape[0]
-        # Depending on how padding works, input_len might be the full padded length.
-        # However, model.generate returns the full sequence.
-        # We want to skip the prompt tokens in the output
-        generated_text = tokenizer.decode(
-            output[input_len:], skip_special_tokens=True
-        ).strip()
-        generated_texts.append(generated_text)
+    input_ids_len = inputs["input_ids"].shape[1]
+    new_tokens = outputs[:, input_ids_len:]
 
-    return generated_texts
+    # Use batch_decode for better performance
+    generated_texts = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
+
+    return [text.strip() for text in generated_texts]
 
 
 def discover_shards(dataset_dir: Path, split: str) -> list[tuple[str, str]]:
@@ -343,6 +354,7 @@ def run_inference(cfg: DictConfig) -> None:
         device,
         load_in_4bit=cfg.load_in_4bit,
         load_in_8bit=cfg.load_in_8bit,
+        model_dtype=cfg.model_dtype,
     )
 
     # Discover shards

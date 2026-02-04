@@ -119,14 +119,8 @@ def truncate_ehr(
         if len(truncated_tokens) <= available_tokens:
             return truncated_text
 
-    # If still too long, use the last section only
-    last_section = ehr_text[section_starts[-1] :]
-    last_tokens = tokenizer.encode(last_section, add_special_tokens=False)
-    if len(last_tokens) <= available_tokens:
-        return last_section
-
     # Last resort: truncate tokens from the last section
-    return tokenizer.decode(last_tokens[-available_tokens:], skip_special_tokens=True)
+    return tokenizer.decode(ehr_tokens[-available_tokens:], skip_special_tokens=True)
 
 
 def create_prompt(

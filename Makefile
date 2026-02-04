@@ -151,4 +151,4 @@ inference:
 		model_path=./models/Qwen3-0.6B \
 		dataset_dir=data/mimic-iv-nl-dataset \
 		split=train \
-		output_dir=outputs/inference \
+		output_dir=outputs/inference

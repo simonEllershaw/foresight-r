@@ -7,7 +7,7 @@ output_dir: ???  # Required: directory to save outputs
 batch_size: 8
 
 tokenization:
-  max_length: 1024
+  max_prompt_length: 1024
   enable_thinking: false
 
 # Inference generation settings

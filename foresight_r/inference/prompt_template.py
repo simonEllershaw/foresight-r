@@ -95,8 +95,7 @@ def ehr_text_to_prompt(
 def truncate_ehr(
     ehr_text: str,
     tokenizer,
-    max_length: int,
-    max_new_tokens: int,
+    max_prompt_length: int,
     task_description: str,
     enable_thinking: bool = False,
     header_delimiter: str = "##",
@@ -106,8 +105,7 @@ def truncate_ehr(
     Args:
         ehr_text: The patient's EHR in markdown format.
         tokenizer: HuggingFace tokenizer for counting tokens.
-        max_length: Maximum total sequence length (context window).
-        max_new_tokens: Maximum tokens reserved for generation.
+        max_prompt_length: Maximum total sequence length (context window).
         task_description: Task description.
         enable_thinking: Whether to use the thinking prompt template (ignored).
 
@@ -123,12 +121,12 @@ def truncate_ehr(
             enable_thinking,
         )
     )
-    available_tokens = max_length - max_new_tokens - overhead_tokens
+    available_tokens = max_prompt_length - overhead_tokens
 
     if available_tokens < 0:
         raise ValueError(
             f"Available tokens ({available_tokens}) < 0. "
-            f"max_length={max_length}, max_new_tokens={max_new_tokens}, "
+            f"max_prompt_length={max_prompt_length}, "
             f"overhead_tokens={overhead_tokens}"
         )
 
@@ -159,7 +157,7 @@ def truncate_ehr(
     # (i.e. keep last N tokens)
     logger.warning(
         f"Could not find a compatible header to truncate on. "
-        f"EHR tokens: {len(ehr_tokens)}, Available tokens: {available_tokens}. "
+        f"EHR tokens: {len(ehr_tokens)}, Available tokens: {available_tokens}. Max prompt length: {max_prompt_length}. "
         "Truncating from end."
     )
     return tokenizer.decode(ehr_tokens[-available_tokens:], skip_special_tokens=True)
@@ -169,8 +167,7 @@ def create_prompt(
     ehr_text: str,
     task_description: str,
     tokenizer=None,
-    max_length: int | None = None,
-    max_new_tokens: int | None = None,
+    max_prompt_length: int | None = None,
     enable_thinking: bool = False,
 ) -> str:
     """Create a formatted prompt from EHR text and task description.
@@ -179,19 +176,17 @@ def create_prompt(
         ehr_text: The patient's electronic health record in markdown format.
         task_description: Description of the prediction task.
         tokenizer: Optional tokenizer for truncation and chat templating.
-        max_length: Maximum total sequence length (context window).
-        max_new_tokens: Maximum tokens reserved for generation.
+        max_prompt_length: Maximum total sequence length (context window).
         enable_thinking: Whether to enable thinking mode.
 
     Returns:
         Formatted prompt string ready for LLM input.
     """
-    if max_length is not None and max_new_tokens is not None and tokenizer is not None:
+    if max_prompt_length is not None and tokenizer is not None:
         ehr_text = truncate_ehr(
             ehr_text,
             tokenizer,
-            max_length,
-            max_new_tokens,
+            max_prompt_length,
             task_description,
             enable_thinking=enable_thinking,
         )

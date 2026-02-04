@@ -15,15 +15,14 @@ from datetime import datetime
 from pathlib import Path
 
 import hydra
-import polars as pl
 import torch
 from typing import Any
 
 from omegaconf import DictConfig
-from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 from foresight_r.inference.prompt_template import create_prompt, load_task_description
+from datasets import load_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -199,9 +198,7 @@ def run_batch_inference(
     new_tokens = outputs[:, input_ids_len:]
 
     # Use batch_decode for better performance
-    generated_texts = tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
-
-    return [text.strip() for text in generated_texts]
+    return tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
 
 
 def discover_shards(dataset_dir: Path, split: str) -> list[tuple[str, str]]:
@@ -256,65 +253,63 @@ def process_shard(
     """
     # Load dataset shard
     input_path = dataset_dir / task_name / split / f"{shard_name}.parquet"
-    df = pl.read_parquet(input_path, n_rows=cfg.max_samples)
+    dataset = load_dataset("parquet", data_files=str(input_path), split="train")
 
-    if len(df) == 0:
+    if cfg.max_samples:
+        dataset = dataset.take(cfg.max_samples)
+
+    if len(dataset) == 0:
         logger.warning(f"Empty shard: {input_path}")
         return 0
 
     # Load task description
     task_description = load_task_description(task_name)
 
-    # Generate prompts with truncation
-    prompts = [
-        create_prompt(
-            text,
-            task_description,
-            tokenizer=tokenizer,
-            max_new_tokens=cfg.generation.max_new_tokens,
-            max_length=cfg.tokenization.max_length,
-            enable_thinking=cfg.tokenization.enable_thinking,
-        )
-        for text in tqdm(df["text"].to_list())
-    ]
-
-    # Run inference in batches
-    all_outputs = []
-    batch_size = cfg.batch_size
-
-    num_batches = (len(prompts) + batch_size - 1) // batch_size
-    for i in tqdm(
-        range(0, len(prompts), batch_size), total=num_batches, desc="Batches"
-    ):
-        batch_prompts = prompts[i : i + batch_size]
-
-        batch_outputs = run_batch_inference(
-            batch_prompts,
-            model,
-            tokenizer,
-            generation_config=cfg.generation,
-        )
-        all_outputs.extend(batch_outputs)
-
-    # Parse outputs
-    parsed_results = [parse_output(output) for output in all_outputs]
-
-    # Create results DataFrame
-    results_df = pl.DataFrame(parsed_results)
-
-    # Add input prompt and raw output
-    results_df = results_df.with_columns(
-        [pl.Series("full_prompt", prompts), pl.Series("raw_output", all_outputs)]
+    # Create prompts
+    dataset = dataset.map(
+        lambda text: {
+            "prompt": create_prompt(
+                text,
+                task_description=task_description,
+                tokenizer=tokenizer,
+                **cfg.tokenization,
+            )
+        },
+        input_columns="text",
+        desc=f"Creating prompts for {task_name} shard {shard_name}",
+        keep_in_memory=True,
     )
 
-    # Combine with original dataframe
-    result_df = pl.concat([df, results_df], how="horizontal")
+    dataset = dataset.map(
+        lambda prompts: {
+            "model_output": run_batch_inference(
+                prompts,
+                model,
+                tokenizer,
+                cfg.generation,
+            ),
+        },
+        batched=True,
+        batch_size=cfg.batch_size,
+        input_columns="prompt",
+        desc=f"Running inference for {task_name} shard {shard_name}",
+        load_from_cache_file=False,
+        # Avoid hashing the model object by providing a static fingerprint
+        new_fingerprint=f"inference_{task_name}_{shard_name}_{split}",
+    )
+
+    dataset = dataset.map(
+        parse_output,
+        input_columns="model_output",
+        desc=f"Parsing outputs for {task_name} shard {shard_name}",
+        keep_in_memory=True,
+    )
 
     # Save results
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    result_df.write_parquet(output_path)
+    dataset.to_parquet(output_path)
 
-    return len(result_df)
+    return len(dataset)
 
 
 def run_inference(cfg: DictConfig) -> None:

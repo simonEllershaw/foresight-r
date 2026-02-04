@@ -139,16 +139,13 @@ def truncate_ehr(
 
     # We truncate on Age headers (as keeps a valid sequence)
     # These uniquely start with "##" and are on a new line
-    # Identify the token sequence for "##" and "\n" to find section header boundaries
     header_ids = tokenizer.encode(header_delimiter, add_special_tokens=False)
     newline_id = tokenizer.encode("\n", add_special_tokens=False)[-1]
-
-    # Calculate how many tokens we need to remove
-    required_len_to_remove = len(ehr_tokens) - available_tokens
 
     # We want to find the first cut point `idx` such that `len(ehr_tokens) - idx <= available_tokens`.
     # This corresponds to searching for the header sequence near the start of the token list.
     num_header_tokens = len(header_ids)
+    required_len_to_remove = len(ehr_tokens) - available_tokens
 
     for i in range(required_len_to_remove, len(ehr_tokens) - num_header_tokens + 1):
         # Check for "##" match at the start of a line (safe to do i-1 as required_len_to_remove > 0)

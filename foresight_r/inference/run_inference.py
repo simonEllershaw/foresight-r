@@ -256,10 +256,7 @@ def process_shard(
     """
     # Load dataset shard
     input_path = dataset_dir / task_name / split / f"{shard_name}.parquet"
-    df = pl.read_parquet(input_path)
-
-    if cfg.max_samples is not None:
-        df = df.head(cfg.max_samples)
+    df = pl.read_parquet(input_path, n_rows=cfg.max_samples)
 
     if len(df) == 0:
         logger.warning(f"Empty shard: {input_path}")
@@ -302,24 +299,16 @@ def process_shard(
     # Parse outputs
     parsed_results = [parse_output(output) for output in all_outputs]
 
-    # Add results to dataframe
-    result_df = df.with_columns(
-        [
-            pl.Series("full_prompt", prompts),
-            pl.Series("raw_output", all_outputs),
-            pl.Series(
-                "parsed_thinking", [r.get("parsed_thinking") for r in parsed_results]
-            ),
-            pl.Series(
-                "parsed_explanation",
-                [r.get("parsed_explanation") for r in parsed_results],
-            ),
-            pl.Series("parsed_answer", [r["parsed_answer"] for r in parsed_results]),
-            pl.Series(
-                "parsed_probability", [r["parsed_probability"] for r in parsed_results]
-            ),
-        ]
+    # Create results DataFrame
+    results_df = pl.DataFrame(parsed_results)
+
+    # Add input prompt and raw output
+    results_df = results_df.with_columns(
+        [pl.Series("full_prompt", prompts), pl.Series("raw_output", all_outputs)]
     )
+
+    # Combine with original dataframe
+    result_df = pl.concat([df, results_df], how="horizontal")
 
     # Save results
     output_path.parent.mkdir(parents=True, exist_ok=True)

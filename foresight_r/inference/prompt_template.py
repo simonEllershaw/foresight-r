@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Prompt template generation for LLM inference on EHR data."""
 
+import logging
 import re
 from pathlib import Path
 
@@ -11,7 +12,10 @@ ACES_CONFIG_DIR = (
     Path(__file__).parent.parent / "aces" / "config" / "mimic4ed-benchmark"
 )
 
-PROMPT_TEMPLATE = """{ehr}
+logger = logging.getLogger(__name__)
+
+PROMPT_TEMPLATE = """# Patient's Electronic Health Record
+{ehr}
 
 # Task
 {task_description}
@@ -55,6 +59,39 @@ def load_task_description(task_name: str, config_dir: Path | None = None) -> str
     return config["metadata"]["description"]
 
 
+def ehr_text_to_prompt(
+    ehr_text: str,
+    task_description: str,
+    tokenizer,
+    enable_thinking: bool = False,
+) -> str:
+    """Convert EHR text to a formatted prompt.
+
+    Args:
+        ehr_text: The patient's electronic health record in markdown format.
+        task_description: Description of the prediction task.
+        tokenizer: Optional tokenizer for truncation and chat templating.
+        enable_thinking: Whether to enable thinking mode.
+
+    Returns:
+        Formatted prompt string ready for LLM input.
+    """
+    formatted_content = PROMPT_TEMPLATE.format(
+        ehr=ehr_text,
+        task_description=task_description,
+    )
+
+    if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
+        messages = [{"role": "user", "content": formatted_content}]
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=enable_thinking,
+        )
+    return formatted_content
+
+
 def truncate_ehr(
     ehr_text: str,
     tokenizer,
@@ -62,6 +99,7 @@ def truncate_ehr(
     max_new_tokens: int,
     task_description: str,
     enable_thinking: bool = False,
+    header_delimiter: str = "##",
 ) -> str:
     """Truncate EHR text at age header boundaries to fit within token limit.
 
@@ -77,49 +115,56 @@ def truncate_ehr(
         Truncated EHR text that fits within the token limit.
     """
     # Calculate token overhead from prompt template (excluding EHR)
-    formatted_prompt = PROMPT_TEMPLATE.format(ehr="", task_description=task_description)
-
-    # If chat template is available, approximate overhead using apply_chat_template
-    if hasattr(tokenizer, "apply_chat_template"):
-        messages = [{"role": "user", "content": formatted_prompt}]
-        overhead_tokens = len(
-            tokenizer.apply_chat_template(
-                messages,
-                tokenize=True,
-                add_generation_prompt=True,
-                enable_thinking=enable_thinking,
-            )
+    overhead_tokens = len(
+        ehr_text_to_prompt(
+            "",
+            task_description,
+            tokenizer,
+            enable_thinking,
         )
-    else:
-        overhead_tokens = len(
-            tokenizer.encode(formatted_prompt, add_special_tokens=False)
-        )
-
+    )
     available_tokens = max_length - max_new_tokens - overhead_tokens
+
+    if available_tokens < 0:
+        raise ValueError(
+            f"Available tokens ({available_tokens}) < 0. "
+            f"max_length={max_length}, max_new_tokens={max_new_tokens}, "
+            f"overhead_tokens={overhead_tokens}"
+        )
 
     # Check if truncation is needed
     ehr_tokens = tokenizer.encode(ehr_text, add_special_tokens=False)
     if len(ehr_tokens) <= available_tokens:
         return ehr_text
 
-    # Find all age header positions
-    matches = list(AGE_HEADER_PATTERN.finditer(ehr_text))
-    if len(matches) <= 1:
-        # No age headers to split on, fall back to token truncation
-        truncated_tokens = ehr_tokens[-available_tokens:]
-        return tokenizer.decode(truncated_tokens, skip_special_tokens=True)
+    # We truncate on Age headers (as keeps a valid sequence)
+    # These uniquely start with "##" and are on a new line
+    # Identify the token sequence for "##" and "\n" to find section header boundaries
+    header_ids = tokenizer.encode(header_delimiter, add_special_tokens=False)
+    newline_id = tokenizer.encode("\n", add_special_tokens=False)[-1]
 
-    # Get section boundaries (start positions of each age section)
-    section_starts = [m.start() for m in matches]
+    # Calculate how many tokens we need to remove
+    required_len_to_remove = len(ehr_tokens) - available_tokens
 
-    # Try removing sections from the beginning until we fit
-    for i in range(1, len(section_starts)):
-        truncated_text = ehr_text[section_starts[i] :]
-        truncated_tokens = tokenizer.encode(truncated_text, add_special_tokens=False)
-        if len(truncated_tokens) <= available_tokens:
-            return truncated_text
+    # We want to find the first cut point `idx` such that `len(ehr_tokens) - idx <= available_tokens`.
+    # This corresponds to searching for the header sequence near the start of the token list.
+    num_header_tokens = len(header_ids)
 
-    # Last resort: truncate tokens from the last section
+    for i in range(required_len_to_remove, len(ehr_tokens) - num_header_tokens + 1):
+        # Check for "##" match at the start of a line (safe to do i-1 as required_len_to_remove > 0)
+        if (
+            ehr_tokens[i : i + num_header_tokens] == header_ids
+            and ehr_tokens[i - 1] == newline_id
+        ):
+            return tokenizer.decode(ehr_tokens[i:], skip_special_tokens=True)
+
+    # Last resort: truncate tokens from the end of the equivalent "start tokens"
+    # (i.e. keep last N tokens)
+    logger.warning(
+        f"Could not find a compatible header to truncate on. "
+        f"EHR tokens: {len(ehr_tokens)}, Available tokens: {available_tokens}. "
+        "Truncating from end."
+    )
     return tokenizer.decode(ehr_tokens[-available_tokens:], skip_special_tokens=True)
 
 
@@ -154,18 +199,9 @@ def create_prompt(
             enable_thinking=enable_thinking,
         )
 
-    formatted_content = PROMPT_TEMPLATE.format(
-        ehr=ehr_text,
-        task_description=task_description,
+    return ehr_text_to_prompt(
+        ehr_text,
+        task_description,
+        tokenizer,
+        enable_thinking,
     )
-
-    if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
-        messages = [{"role": "user", "content": formatted_content}]
-        return tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=enable_thinking,
-        )
-
-    return formatted_content

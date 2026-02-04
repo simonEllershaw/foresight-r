@@ -275,7 +275,7 @@ def process_shard(
             max_length=cfg.tokenization.max_length,
             enable_thinking=cfg.tokenization.enable_thinking,
         )
-        for text in df["text"].to_list()
+        for text in tqdm(df["text"].to_list())
     ]
 
     # Run inference in batches

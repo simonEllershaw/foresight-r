@@ -7,7 +7,7 @@ output_dir: ???  # Required: directory to save outputs
 batch_size: 8
 
 tokenization:
-  max_length: 512
+  max_length: 1024
   enable_thinking: false
 
 # Inference generation settings
@@ -29,7 +29,7 @@ load_in_8bit: false
 model_dtype: bfloat16
 
 # Optional: limit number of samples per shard (for debugging)
-max_samples: 8
+max_samples: null
 
 # Optional specific tasks to process (null = all tasks)
 tasks:

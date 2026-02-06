@@ -393,7 +393,7 @@ def run_inference(cfg: DictConfig) -> None:
 
 @hydra.main(
     version_base=None,
-    config_path="config",
+    config_path=str(Path(__file__).parent / "../../config/inference"),
     config_name="run_inference",
 )
 def main(cfg: DictConfig) -> None:

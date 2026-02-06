@@ -20,7 +20,7 @@ MIMIC_MEDS_DIR_SRC := foresight_r/meds/mimic
 N_WORKERS          := 1
 
 ACES_OUTPUT_DIR := data/mimic-iv-aces-labels
-ACES_CONFIG_DIR := foresight_r/aces/config/mimic4ed-benchmark
+ACES_CONFIG_DIR := config/aces/mimic4ed-benchmark
 ACES_COHORTS := $(notdir $(basename $(wildcard $(ACES_CONFIG_DIR)/*.yaml)))
 
 .PHONY: download-mimic-demo download-mimic-ed-demo download-demo-data meds sample_markdown_file test aces_outputs ethos-tokenization nl-dataset
@@ -83,11 +83,11 @@ meds:
 	@rm -rf $(MIMICIV_MEDS_DIR)
 	INPUT_DIR="$(CURDIR)/$(MIMICIV_PRE_MEDS_DIR)" \
 	COHORT_DIR="$(CURDIR)/$(MIMICIV_MEDS_DIR)" \
-	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/schemas/event_configs-ed-foresight.yaml" \
+	EVENT_CONVERSION_CONFIG_FP="$(CURDIR)/config/meds/mimic/schemas/event_configs-ed-foresight.yaml" \
 	N_WORKERS=$(N_WORKERS) \
 	uv run MEDS_transform-runner \
-		pipeline_config_fp="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/transforms/extract_MIMIC.yaml" \
-		stage_runner_fp="$(CURDIR)/$(MIMIC_MEDS_DIR_SRC)/config/transforms/local_parallelism_runner.yaml"
+		pipeline_config_fp="$(CURDIR)/config/meds/mimic/transforms/extract_MIMIC.yaml" \
+		stage_runner_fp="$(CURDIR)/config/meds/mimic/transforms/local_parallelism_runner.yaml"
 
 sample_markdown_file:
 	uv run python scripts/sandbox/convert_patient_to_md.py

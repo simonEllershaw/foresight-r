@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import yaml
+from transformers import PreTrainedTokenizer
 
 # Path to ACES benchmark configs
 ACES_CONFIG_DIR = (
@@ -98,7 +99,6 @@ def truncate_ehr(
     max_prompt_length: int,
     task_description: str,
     enable_thinking: bool = False,
-    header_delimiter: str = "##",
 ) -> str:
     """Truncate EHR text at age header boundaries to fit within token limit.
 
@@ -112,61 +112,56 @@ def truncate_ehr(
     Returns:
         Truncated EHR text that fits within the token limit.
     """
-    # Calculate token overhead from prompt template (excluding EHR)
-    overhead_tokens = len(
-        ehr_text_to_prompt(
-            "",
-            task_description,
-            tokenizer,
-            enable_thinking,
-        )
+    # Calculate lengths based on the actual full prompt
+    # 1. Check if the full text already fits
+    full_prompt = ehr_text_to_prompt(
+        ehr_text,
+        task_description,
+        tokenizer,
+        enable_thinking,
     )
-    available_tokens = max_prompt_length - overhead_tokens
+    full_ids = tokenizer.encode(full_prompt, add_special_tokens=False)
 
-    if available_tokens < 0:
-        raise ValueError(
-            f"Available tokens ({available_tokens}) < 0. "
-            f"max_prompt_length={max_prompt_length}, "
-            f"overhead_tokens={overhead_tokens}"
-        )
-
-    # Check if truncation is needed
-    ehr_tokens = tokenizer.encode(ehr_text, add_special_tokens=False)
-    if len(ehr_tokens) <= available_tokens:
+    if len(full_ids) <= max_prompt_length:
         return ehr_text
 
-    # We truncate on Age headers (as keeps a valid sequence)
-    # These uniquely start with "##" and are on a new line
-    header_ids = tokenizer.encode(header_delimiter, add_special_tokens=False)
-    newline_id = tokenizer.encode("\n", add_special_tokens=False)[-1]
+    # 2. Derive available tokens correctly
+    ehr_tokens = tokenizer.encode(ehr_text, add_special_tokens=False)
+    num_tokens_to_drop = len(full_ids) - max_prompt_length
+    available_tokens = len(ehr_tokens) - num_tokens_to_drop
 
-    # We want to find the first cut point `idx` such that `len(ehr_tokens) - idx <= available_tokens`.
-    # This corresponds to searching for the header sequence near the start of the token list.
-    num_header_tokens = len(header_ids)
-    required_len_to_remove = len(ehr_tokens) - available_tokens
+    if available_tokens <= 0:
+        # This means even dropping ALL EHR tokens isn't enough (overhead > max_len)
+        overhead_estimate = len(full_ids) - len(ehr_tokens)
+        raise ValueError(
+            f"Available tokens ({available_tokens}) <= 0. "
+            f"max_prompt_length={max_prompt_length}, "
+            f"estimated_overhead={overhead_estimate}, "
+            f"ehr_tokens={len(ehr_tokens)}"
+        )
 
-    for i in range(required_len_to_remove, len(ehr_tokens) - num_header_tokens + 1):
-        # Check for "##" match at the start of a line (safe to do i-1 as required_len_to_remove > 0)
-        if (
-            ehr_tokens[i : i + num_header_tokens] == header_ids
-            and ehr_tokens[i - 1] == newline_id
-        ):
-            return tokenizer.decode(ehr_tokens[i:], skip_special_tokens=True)
+    # 3. Truncate using regex
+    ehr_suffix = tokenizer.decode(
+        ehr_tokens[-available_tokens:], skip_special_tokens=True
+    )
 
-    # Last resort: truncate tokens from the end of the equivalent "start tokens"
-    # (i.e. keep last N tokens)
+    match = AGE_HEADER_PATTERN.search(ehr_suffix)
+    if match:
+        return ehr_suffix[match.start() :]
+
+    # Last resort: truncate tokens from the end
     logger.warning(
         f"Could not find a compatible header to truncate on. "
-        f"EHR tokens: {len(ehr_tokens)}, Available tokens: {available_tokens}. Max prompt length: {max_prompt_length}. "
-        "Truncating from end."
+        f"EHR tokens: {len(ehr_tokens)}, Available tokens: {available_tokens}. "
+        f"Max prompt length: {max_prompt_length}. Truncating from end."
     )
-    return tokenizer.decode(ehr_tokens[-available_tokens:], skip_special_tokens=True)
+    return ehr_suffix
 
 
 def create_prompt(
     ehr_text: str,
     task_description: str,
-    tokenizer=None,
+    tokenizer: PreTrainedTokenizer,
     max_prompt_length: int | None = None,
     enable_thinking: bool = False,
 ) -> str:
@@ -182,7 +177,7 @@ def create_prompt(
     Returns:
         Formatted prompt string ready for LLM input.
     """
-    if max_prompt_length is not None and tokenizer is not None:
+    if max_prompt_length is not None:
         ehr_text = truncate_ehr(
             ehr_text,
             tokenizer,

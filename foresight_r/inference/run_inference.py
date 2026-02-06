@@ -185,11 +185,10 @@ def run_batch_inference(
     Returns:
         List of generated text outputs.
     """
-    # Tokenize prompts
+    # Tokenize prompts, truncation done at prompt creation stage
     inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=False).to(
         model.device
     )
-
     # Generate
     with torch.inference_mode():
         outputs = model.generate(**inputs, **generation_config)
@@ -267,21 +266,25 @@ def process_shard(
     task_description = load_task_description(task_name)
 
     # Create prompts
-    num_proc = max(1, os.cpu_count() or 1)
+    def _generate_prompt_and_length(text: str) -> dict:
+        prompt = create_prompt(
+            text,
+            task_description=task_description,
+            tokenizer=tokenizer,
+            **cfg.tokenization,
+        )
+        return {"prompt": prompt, "prompt_length": len(prompt)}
+
     dataset = dataset.map(
-        lambda text: {
-            "prompt": create_prompt(
-                text,
-                task_description=task_description,
-                tokenizer=tokenizer,
-                **cfg.tokenization,
-            )
-        },
+        _generate_prompt_and_length,
         input_columns="text",
         desc=f"Creating prompts for {task_name} shard {shard_name}",
         keep_in_memory=True,
-        num_proc=num_proc,
+        num_proc=os.cpu_count(),
     )
+
+    # Sort by prompt length to minimize padding during batch inference
+    dataset = dataset.sort("prompt_length", reverse=True)
 
     dataset = dataset.map(
         lambda prompts: {

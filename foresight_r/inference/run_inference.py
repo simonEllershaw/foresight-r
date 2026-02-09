@@ -104,6 +104,8 @@ def load_model_and_tokenizer(
         dtype=resolved_dtype,
         device_map="auto" if device.type == "cuda" else None,
         quantization_config=quantization_config,
+        # TODO: Enable flash attention when it is supported
+        # attn_implementation="flash_attention_2"
     )
 
     if device.type != "cuda":

@@ -1,5 +1,5 @@
 import pytest
-from foresight_r.inference.prompt_template import truncate_ehr, create_prompt
+from foresight_r.models.utils.prompt import truncate_ehr, create_prompt
 
 
 class MockTokenizer:
@@ -130,10 +130,10 @@ def test_special_tokens_accounted_for(tokenizer):
     # New prompt: 1 + 4 + 1 = 6 tokens. Fits!
 
     # Patch PROMPT_TEMPLATE to ensure overhead is small and predictable
-    import foresight_r.inference.prompt_template
+    import foresight_r.models.utils.prompt
 
-    original_template = foresight_r.inference.prompt_template.PROMPT_TEMPLATE
-    foresight_r.inference.prompt_template.PROMPT_TEMPLATE = "{ehr}"
+    original_template = foresight_r.models.utils.prompt.PROMPT_TEMPLATE
+    foresight_r.models.utils.prompt.PROMPT_TEMPLATE = "{ehr}"
 
     try:
         max_length = 6
@@ -154,7 +154,7 @@ def test_special_tokens_accounted_for(tokenizer):
         final_ids = tokenizer.encode(final_prompt)
         assert len(final_ids) <= max_length
     finally:
-        foresight_r.inference.prompt_template.PROMPT_TEMPLATE = original_template
+        foresight_r.models.utils.prompt.PROMPT_TEMPLATE = original_template
 
 
 def test_token_merging_edge_case(tokenizer):
@@ -190,10 +190,10 @@ def test_token_merging_edge_case(tokenizer):
     # 1 <= 2. SUCCESS.
 
     # Monkeypatch PROMPT_TEMPLATE to be empty for this test so we control exact token counts
-    import foresight_r.inference.prompt_template
+    import foresight_r.models.utils.prompt
 
-    original_template = foresight_r.inference.prompt_template.PROMPT_TEMPLATE
-    foresight_r.inference.prompt_template.PROMPT_TEMPLATE = "{ehr}"
+    original_template = foresight_r.models.utils.prompt.PROMPT_TEMPLATE
+    foresight_r.models.utils.prompt.PROMPT_TEMPLATE = "{ehr}"
 
     try:
         max_length = 2
@@ -212,7 +212,7 @@ def test_token_merging_edge_case(tokenizer):
 
     finally:
         # Restore
-        foresight_r.inference.prompt_template.PROMPT_TEMPLATE = original_template
+        foresight_r.models.utils.prompt.PROMPT_TEMPLATE = original_template
 
 
 def test_overhead_calculation_is_token_based(tokenizer):

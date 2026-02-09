@@ -10,7 +10,10 @@ from transformers import PreTrainedTokenizer
 
 # Path to ACES benchmark configs
 ACES_CONFIG_DIR = (
-    Path(__file__).parent.parent.parent / "config" / "aces" / "mimic4ed-benchmark"
+    Path(__file__).parent.parent.parent.parent
+    / "config"
+    / "aces"
+    / "mimic4ed-benchmark"
 )
 
 logger = logging.getLogger(__name__)

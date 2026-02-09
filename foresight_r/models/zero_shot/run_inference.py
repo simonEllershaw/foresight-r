@@ -14,105 +14,23 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import hydra
 import torch
-from typing import Any
-
 from omegaconf import DictConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from foresight_r.inference.prompt_template import create_prompt, load_task_description
+from foresight_r.models.utils import (
+    create_prompt,
+    discover_shards,
+    get_device,
+    load_model_and_tokenizer,
+    load_task_description,
+)
 from datasets import load_dataset
 
 logger = logging.getLogger(__name__)
-
-
-def get_device() -> torch.device:
-    """Get the best available device for inference."""
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
-
-
-def load_model_and_tokenizer(
-    model_path: str,
-    device: torch.device,
-    load_in_4bit: bool = False,
-    load_in_8bit: bool = False,
-    model_dtype: str | None = None,
-) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
-    """Load model and tokeniser from local path.
-
-    Args:
-        model_path: Path to local HuggingFace model weights.
-        device: Device to load model onto.
-        load_in_4bit: Enable 4-bit quantization (requires CUDA).
-        load_in_8bit: Enable 8-bit quantization (requires CUDA).
-        model_dtype: Override data type (float16, bfloat16, float32).
-
-    Returns:
-        Tuple of (model, tokenizer).
-    """
-    logger.info(f"Loading model from {model_path}")
-    logger.info(f"Using device: {device}")
-
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    tokenizer.padding_side = "left"  # Required for decoder-only models
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-
-    # Determine best dtype
-    dtype_map = {
-        "float16": torch.float16,
-        "bfloat16": torch.bfloat16,
-        "float32": torch.float32,
-    }
-
-    if model_dtype in dtype_map:
-        resolved_dtype = dtype_map[model_dtype]
-    elif device.type == "cuda" and torch.cuda.is_bf16_supported():
-        resolved_dtype = torch.bfloat16
-    elif device.type in ("cuda", "mps"):
-        resolved_dtype = torch.float16
-    else:
-        resolved_dtype = torch.float32
-
-    # Configure quantization if requested
-    quantization_config = None
-    if load_in_4bit or load_in_8bit:
-        if device.type != "cuda":
-            logger.warning(
-                "Quantization requires CUDA. Falling back to standard loading."
-            )
-        else:
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=load_in_4bit,
-                load_in_8bit=load_in_8bit,
-                bnb_4bit_compute_dtype=resolved_dtype,
-                bnb_4bit_use_double_quant=True,
-            )
-            logger.info(
-                f"Using {'4-bit' if load_in_4bit else '8-bit'} quantization "
-                f"with compute dtype {resolved_dtype}"
-            )
-
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        dtype=resolved_dtype,
-        device_map="auto" if device.type == "cuda" else None,
-        quantization_config=quantization_config,
-        # TODO: Enable flash attention when it is supported
-        # attn_implementation="flash_attention_2"
-    )
-
-    if device.type != "cuda":
-        model = model.to(device)
-
-    model.eval()
-    return model, tokenizer
 
 
 def parse_output(text: str) -> dict:
@@ -201,31 +119,6 @@ def run_batch_inference(
 
     # Use batch_decode for better performance
     return tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
-
-
-def discover_shards(dataset_dir: Path, split: str) -> list[tuple[str, str]]:
-    """Discover all shards for a given split across all tasks.
-
-    Args:
-        dataset_dir: Root directory of NL dataset.
-        split: Split name (train, tuning, held_out).
-
-    Returns:
-        List of (task_name, shard_name) tuples.
-    """
-    shards = []
-    for task_dir in dataset_dir.iterdir():
-        if not task_dir.is_dir() or task_dir.name.startswith("."):
-            continue
-
-        split_dir = task_dir / split
-        if not split_dir.exists():
-            continue
-
-        for shard_file in split_dir.glob("*.parquet"):
-            shards.append((task_dir.name, shard_file.stem))
-
-    return sorted(shards)
 
 
 def process_shard(
@@ -344,6 +237,7 @@ def run_inference(cfg: DictConfig) -> None:
     model, tokenizer = load_model_and_tokenizer(
         cfg.model_path,
         device,
+        model_class=AutoModelForCausalLM,
         load_in_4bit=cfg.load_in_4bit,
         load_in_8bit=cfg.load_in_8bit,
         model_dtype=cfg.model_dtype,
@@ -398,7 +292,7 @@ def run_inference(cfg: DictConfig) -> None:
 
 @hydra.main(
     version_base=None,
-    config_path=str(Path(__file__).parent / "../../config/inference"),
+    config_path=str(Path(__file__).parent / "../../../config/models/zero_shot"),
     config_name="run_inference",
 )
 def main(cfg: DictConfig) -> None:

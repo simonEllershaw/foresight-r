@@ -1,4 +1,4 @@
-model_path: ???  # Required: path to local HuggingFace model weights
+model_path: "./models/Qwen3-0.6B"
 dataset_dir: ???  # Required: directory of natural language datasets
 split: ???  # Required: split to run inference on (train, held_out, tuning)
 output_dir: ???  # Required: directory to save outputs

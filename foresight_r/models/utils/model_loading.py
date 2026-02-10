@@ -15,10 +15,22 @@ from omegaconf import DictConfig
 logger = logging.getLogger(__name__)
 
 
+def get_device() -> torch.device:
+    """Get the best available device for inference.
+
+    Returns:
+        torch.device: CUDA if available, then MPS, otherwise CPU.
+    """
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 def load_model_and_tokenizer(
     model_class: Type[PreTrainedModel],
     model_config: DictConfig,
-    device: torch.device,
 ) -> tuple[PreTrainedModel, AutoTokenizer]:
     """Load model and tokeniser from local path.
 
@@ -34,6 +46,7 @@ def load_model_and_tokenizer(
         Tuple of (model, tokenizer).
     """
     logger.info(f"Loading model from {model_config.pretrained_model_name_or_path}")
+    device = get_device()
     logger.info(f"Using device: {device}")
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -42,6 +55,8 @@ def load_model_and_tokenizer(
     tokenizer.padding_side = "left"  # Required for decoder-only models
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    device = get_device()
 
     # Determine best dtype
     dtype_map = {

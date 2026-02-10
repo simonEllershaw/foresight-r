@@ -19,7 +19,6 @@ from omegaconf import DictConfig
 from transformers import AutoModelForCausalLM
 
 from foresight_r.models.utils import (
-    get_device,
     load_model_and_tokenizer,
     process_shards_with_model,
 )
@@ -86,11 +85,9 @@ def run_inference(cfg: DictConfig) -> None:
     logger.info(f"Model path: {cfg.model.pretrained_model_name_or_path}")
 
     # Load model
-    device = get_device()
     model, tokenizer = load_model_and_tokenizer(
         model_class=AutoModelForCausalLM,
         model_config=cfg.model,
-        device=device,
     )
 
     # Define batch function for generation
@@ -124,7 +121,7 @@ def run_inference(cfg: DictConfig) -> None:
 
 @hydra.main(
     version_base=None,
-    config_path="../../../../config/models/zero_shot",
+    config_path="../../../config/models/zero_shot",
     config_name="run_inference",
 )
 def main(cfg: DictConfig) -> None:

@@ -474,7 +474,7 @@ ICD_DFS_TO_FIX = [
 
 @hydra.main(
     version_base=None,
-    config_path=str(Path(__file__).parent / "../../../config/meds/mimic/transforms"),
+    config_path="../../../config/meds/mimic/transforms",
     config_name="pre_MEDS",
 )
 def main(cfg: DictConfig):

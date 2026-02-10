@@ -1,16 +1,15 @@
 defaults:
-  - run_inference
+  - run_inference@_here_
   - _self_
 
 # Chain-of-thought reasoning
 tokenization:
-  max_length: 3048
   enable_thinking: true
 
 # Inference generation settings
 # https://huggingface.co/Qwen/Qwen3-0.6B#best-practices
 generation:
-  max_new_tokens: 1000
+  max_new_tokens: 1024
   temperature: 0.6
   top_p: 0.95
   top_k: 20

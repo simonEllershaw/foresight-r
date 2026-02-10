@@ -1,16 +1,10 @@
-model_path: "./models/Qwen3-0.6B"
-dataset_dir: ???  # Required: directory of natural language datasets
-split: ???  # Required: split to run inference on (train, held_out, tuning)
-output_dir: ???  # Required: directory to save outputs
+defaults:
+  - ../_defaults@_here_
+  - _self_
 
-# Inference settings
-batch_size: 48
+# Zero-shot LLM inference specific settings
 
-tokenization:
-  max_prompt_length: 512
-  enable_thinking: false
-
-# Inference generation settings
+# Generation settings
 # https://huggingface.co/Qwen/Qwen3-0.6B#best-practices
 generation:
   max_new_tokens: 128
@@ -20,28 +14,3 @@ generation:
   top_k: 20
   top_p: 0.8
   min_p: 0
-
-# Quantization (for memory-constrained GPUs)
-load_in_4bit: false
-load_in_8bit: false
-
-# Model data type (null = auto-detect, float16, bfloat16, float32)
-model_dtype: float16
-
-# Optional: compile model for faster inference (adds startup time)
-compile_model: true
-
-# Optional: limit number of samples per shard (for debugging)
-max_samples: null
-
-# Optional specific tasks to process (null = all tasks)
-tasks:
-  - ed_reattendance
-
-hydra:
-  run:
-    dir: ${output_dir}/${split}/${now:%Y%m%d_%H%M%S}
-  sweep:
-    dir: ${output_dir}/${split}/${now:%Y%m%d_%H%M%S}
-  job:
-    chdir: false

@@ -1,0 +1,35 @@
+# Shared defaults for all model configs
+# Individual configs inherit via: defaults: [../_defaults]
+
+dataset_dir: ???  # Required: directory of natural language datasets
+split: ???  # Required: split to process (train, held_out, tuning)
+output_dir: ???  # Required: directory to save outputs
+
+model:
+  pretrained_model_name_or_path: "./models/Qwen3-0.6B"
+  # Quantisation (for memory-constrained GPUs)
+  load_in_4bit: false
+  load_in_8bit: false
+  # Model data type (null = auto-detect, float16, bfloat16, float32)
+  dtype: float16
+  # Compile model for faster inference (adds startup time)
+  compile_model: true
+
+batch_size: 48
+
+tokenization:
+  max_prompt_length: 512
+  enable_thinking: false
+
+# Optional: limit number of samples per shard (for debugging)
+max_samples: null
+
+# Optional: specific tasks to process (null = all tasks)
+tasks:
+  - hospitalisation
+
+hydra:
+  run:
+    dir: ${output_dir}/${split}/${now:%Y%m%d_%H%M%S}
+  job:
+    chdir: false

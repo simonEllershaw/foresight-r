@@ -9,6 +9,10 @@ from foresight_r.models.utils.prompt import (
     ehr_text_to_prompt,
     truncate_ehr,
 )
+from foresight_r.models.utils.shard_processor import (
+    process_shard,
+    process_shards_with_model,
+)
 
 __all__ = [
     "get_device",
@@ -18,4 +22,6 @@ __all__ = [
     "load_task_description",
     "ehr_text_to_prompt",
     "truncate_ehr",
+    "process_shard",
+    "process_shards_with_model",
 ]

@@ -238,7 +238,7 @@ def create_nl_dataset(cfg: DictConfig) -> None:
 
 @hydra.main(
     version_base=None,
-    config_path=str(Path(__file__).parent / "../../../config/meds"),
+    config_path="../../../config/meds",
     config_name="create_nl_dataset",
 )
 def main(cfg: DictConfig) -> None:
